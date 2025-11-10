@@ -8,7 +8,7 @@ from model import model
 from validation import EarlyStopping, validate_model
 from torch.utils.data import Dataset, Subset, DataLoader
 from sklearn.model_selection import StratifiedGroupKFold
-from dataset2 import MyDataset, train_transform, val_transform
+from dataset import MyDataset, train_transform, val_transform
 wandb.login()
 
 with open("config.yaml", "r") as file:
@@ -33,10 +33,10 @@ np.random.seed(config['seed'])
 cv = StratifiedGroupKFold(config['k_fold'], shuffle=True)
 
 class_names = ["benign", "malignant"]
-early_stopping = EarlyStopping(config['early_stopping']['patience'], config['early_stopping']['min_delta'])
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels, cases)):
+    early_stopping = EarlyStopping(config['early_stopping']['patience'], config['early_stopping']['min_delta'])
     print(f"\n=== Fold {fold + 1} / {config['k_fold']} ===")
     print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
 
@@ -76,7 +76,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         dense.train()
         running_loss = 0.0
   
-        for images, labels in tqdm.tqdm(train_loader):
+        for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = dense(images)
@@ -93,7 +93,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         # VALIDATION LOOP
         val_loss = validate_model(dense, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
         scheduler.step(val_loss)
-        #print(f"Epoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+        print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         early_stopping(val_loss)
         if early_stopping.early_stop:                       
             print("Early stopping triggered.")
