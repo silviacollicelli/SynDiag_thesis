@@ -1,11 +1,13 @@
 import os
 import cv2
-import shutil
-import random
+import numpy as np
 import pandas as pd
 from PIL import Image
 import torch
+import yaml
+import torchvision.transforms as transforms
 from torch.utils.data import Dataset
+from sklearn.model_selection import StratifiedGroupKFold
 
 
 def video_to_tensors(video_path, frame_skip=1):
@@ -33,10 +35,10 @@ def video_to_tensors(video_path, frame_skip=1):
             # Convert BGR (OpenCV) to RGB
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             # Convert to tensor and normalize to [0, 1]
-            tensor = torch.from_numpy(frame).float() / 255.0
+            #tensor = torch.from_numpy(frame).float() / 255.0
             # Change shape from (H, W, C) to (C, H, W)
-            tensor = tensor.permute(2, 0, 1)
-            frames.append(tensor)
+            #tensor = tensor.permute(2, 0, 1)
+            frames.append(frame)
         
         idx += 1
 
@@ -48,8 +50,26 @@ def video_to_tensors(video_path, frame_skip=1):
 #frames = video_to_tensors("/home/silvia.collicelli/data/Dataset/1OmjAyXN7qUvFRu6e0RN2/lo6A177Av9yn5IhCFG-EO/lo6A177Av9yn5IhCFG-EO.mp4", frame_skip=1)
 #print(f"Extracted {len(frames)} frames, each of shape {frames[0].shape}")
 
+train_transform = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.RandomResizedCrop(224),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomVerticalFlip(),
+    transforms.RandomRotation(10),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1, hue=0.05),
+    transforms.ToTensor(),
+    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+])
+
+val_transform = transforms.Compose([
+    transforms.Resize((256, 256)),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+])
+
 class MyDataset(Dataset):
-    def __init__(self, annotations_file, img_dir, frame_skip=1, transform=None, target_transform=None):
+    def __init__(self, annotations_file, img_dir, frame_skip=1, transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
@@ -66,7 +86,6 @@ class MyDataset(Dataset):
         }
         self.img_dir = img_dir
         self.transform = transform
-        self.target_transform = target_transform
 
         self.case_folders = [entry.name for entry in os.scandir(self.img_dir) if entry.is_dir()]
 
@@ -100,36 +119,63 @@ class MyDataset(Dataset):
         sample, label, _ = self.samples[idx]
         if isinstance(sample, str):  # image path
             image = Image.open(sample).convert("RGB")
-            if self.transform:
-                image = self.transform(image)
         else:
-            image = sample  # already a tensor frame
+            image = Image.fromarray(sample)
+        if self.transform:
+            image = self.transform(image)
 
         return image, label
     
 
-#clinical_path = r"raw_dataset/artifacts/clinical_case_metadata.parquet"
-#folder_path = r"raw_dataset/artifacts/Dataset"
-#frames_path = r"/home/silvia.collicelli/frames"
-clinical_path = r"C:\Users\utente\Documents\UNI\MAGISTRALE\tesi\naive_baseline\raw_dataset\artifacts\clinical_case_metadata.parquet"
-folder_path = r"C:\Users\utente\Documents\UNI\MAGISTRALE\tesi\naive_baseline\raw_dataset\artifacts\Dataset"
+with open("config.yaml", "r") as file:
+    config = yaml.safe_load(file)
 
-data = MyDataset(clinical_path, folder_path)
-print("done dataset")
+#data = MyDataset(config['data']['clinical_path'], config['data']['folder_path'])
+#print("done dataset")
 
-random.shuffle(data.case_folders)
-train_cases = data.case_folders[:int(0.8*len(data.case_folders))]
-test_cases = data.case_folders[int(0.8*len(data.case_folders)):]
 
-train_idx = []
-test_idx = []
+#def train_val_subsets(data, train_transform, val_transform):
+#
+#    random.shuffle(data.case_folders)
+#    train_cases = data.case_folders[:int(0.8*len(data.case_folders))]
+#    val_cases = data.case_folders[int(0.8*len(data.case_folders)):]
+#
+#    train_idx = []
+#    val_idx = []
+#
+#    for i, p in enumerate(data.samples):
+#        if p[2] in train_cases:
+#            train_idx.append(i)
+#        else: 
+#            val_idx.append(i)
+#
+#    train_dataset = torch.utils.data.Subset(data, train_idx)
+#    val_dataset  = torch.utils.data.Subset(data, val_idx)
+#    train_dataset.transform = train_transform
+#    val_dataset.transform = val_transform
+#
+#    return train_dataset, val_dataset
 
-for i, p in enumerate(data.samples):
-    if p[2] in train_cases:
-        train_idx.append(i)
-    else: 
-        test_idx.append(i)
+#train_sub, val_sub = train_val_subsets(data)
+#print("divided into training and validation per patient")
 
-train_dataset = torch.utils.data.Subset(data, train_idx)
-test_dataset  = torch.utils.data.Subset(data, test_idx)
-print("divided into training and validation per patient")
+
+#add cross validation with stratifiedGroupkfold
+#def cross_val(k, data):
+#    labels = []
+#    items = []
+#    cases = []
+#
+#    cv = StratifiedGroupKFold(k, shuffle=True)
+#    for _, p in enumerate(data.samples):
+#        items.append(p[0])
+#        labels.append(p[1])
+#        cases.append(p[2])
+#
+#    cases = np.array(cases)
+#
+#    for fold, (train_idx, val_idx) in enumerate(cv.split(items, labels, cases)):
+#        print(f"Fold {fold} - Train: {len(train_idx)} samples, Val: {len(val_idx)} samples")
+#    
+#
+#cross_val(5, data)
