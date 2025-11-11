@@ -1,13 +1,13 @@
 data:
- clinical_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\clinical_case_metadata.parquet"
- folder_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\Dataset"
+ clinical_path: "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"
+ folder_path: "/home/silvia.collicelli/data/Dataset"
 
-early_stopping: 
+early_stopping:
  patience: 5
  min_delta: 0.001
 
-batch_size: 8
-epochs: 10
+batch_size: 64
+epochs: 15
 k_fold: 5
 seed: 0
 device: str(device)

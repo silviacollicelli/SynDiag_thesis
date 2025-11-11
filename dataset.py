@@ -47,7 +47,7 @@ val_transform = transforms.Compose([
 ])
 
 class MyDataset(Dataset):
-    def __init__(self, annotations_file, img_dir, frame_skip=1, transform=None):
+    def __init__(self, annotations_file, img_dir, frame_skip=30, transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)

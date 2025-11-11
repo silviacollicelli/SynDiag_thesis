@@ -20,6 +20,8 @@ base_dataset = MyDataset(
     config['data']['folder_path']
 )
 
+print("done base dataset")
+
 labels = [s[1] for s in base_dataset.samples]
 cases = [s[2] for s in base_dataset.samples]
 
@@ -41,7 +43,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
     print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
 
     wandb.init(
-        project="newcv_project",
+        project="full_dataset_cv_project",
         group="cross_validation_run",
         name=f"fold_{fold+1}"
     )
@@ -76,7 +78,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         dense.train()
         running_loss = 0.0
   
-        for images, labels in train_loader:
+        for images, labels in tqdm.tqdm(train_loader):
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = dense(images)
@@ -94,9 +96,9 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         val_loss = validate_model(dense, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
         scheduler.step(val_loss)
         print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-        early_stopping(val_loss)
-        if early_stopping.early_stop:                       
-            print("Early stopping triggered.")
-            break
+        #early_stopping(val_loss)
+        #if early_stopping.early_stop:                       
+        #    print("Early stopping triggered.")
+        #    break
 
     wandb.finish()
