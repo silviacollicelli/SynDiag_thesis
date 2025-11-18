@@ -4,20 +4,18 @@ import torch
 import tqdm
 import wandb
 import yaml
-from model import model
+from model import build_model
 from validation import EarlyStopping, validate_model
 from torch.utils.data import Dataset, Subset, DataLoader
 from sklearn.model_selection import StratifiedGroupKFold
 from dataset import MyDataset, train_transform, val_transform
-wandb.login()
 
 with open("config.yaml", "r") as file:
-    config = yaml.safe_load(file)
-
+    base_cfg = yaml.safe_load(file)
 
 base_dataset = MyDataset(
-    config['data']['clinical_path'],
-    config['data']['folder_path']
+    base_cfg['data']['clinical_path'],
+    base_cfg['data']['folder_path']
 )
 
 labels = [s[1] for s in base_dataset.samples]
@@ -26,18 +24,21 @@ cases = [s[2] for s in base_dataset.samples]
 cases = np.array(cases)
 labels = np.array(labels)
 
-torch.manual_seed(config['seed'])
-random.seed(config['seed'])
-np.random.seed(config['seed'])
+torch.manual_seed(base_cfg['seed'])
+random.seed(base_cfg['seed'])
+np.random.seed(base_cfg['seed'])
 
-cv = StratifiedGroupKFold(config['k_fold'], shuffle=True)
+wandb.login()
+config = wandb.config
+cv = StratifiedGroupKFold(config.k_fold, shuffle=True)
 
+early_stop = bool(input("using early stopping? True/False "))
 class_names = ["benign", "malignant"]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels, cases)):
-    early_stopping = EarlyStopping(config['early_stopping']['patience'], config['early_stopping']['min_delta'])
-    print(f"\n=== Fold {fold + 1} / {config['k_fold']} ===")
+    early_stopping = EarlyStopping(config.early_stopping.patience, config.early_stopping.min_delta)
+    print(f"\n=== Fold {fold + 1} / {config.k_fold} ===")
     print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
 
     wandb.init(
@@ -48,13 +49,13 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
 
     # --- Create SEPARATE dataset instances for train and val ---
     train_data = MyDataset(
-        config['data']['clinical_path'],
-        config['data']['folder_path'],
+        base_cfg['data']['clinical_path'],
+        base_cfg['data']['folder_path'],
         transform=train_transform
     )
     val_data = MyDataset(
-        config['data']['clinical_path'],
-        config['data']['folder_path'],
+        base_cfg['data']['clinical_path'],
+        base_cfg['data']['folder_path'],
         transform=val_transform
     )
 
@@ -64,22 +65,29 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
 
     # --- DataLoaders ---
     train_loader = DataLoader(
-        train_dataset, batch_size=config['batch_size'], shuffle=True
+        train_dataset, batch_size=config.batch_size, shuffle=True
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=config['batch_size'], shuffle=False
+        val_dataset, batch_size=config.batch_size, shuffle=False
     )
 
-    dense, optimizer, criterion, scheduler = model(device)
+    #dense, optimizer, criterion, scheduler = model(device)
+
+    model, optimizer, criterion, scheduler = build_model(
+        device=device,
+        lr_blocks=config.lr_blocks,
+        lr_classifier=config.lr_classifier,
+        freeze_strategy=config.freeze_strategy,
+    )
     print(f"start training {fold+1}")
     for epoch in range(config['epochs']):
-        dense.train()
+        model.train()
         running_loss = 0.0
   
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs = dense(images)
+            outputs = model(images)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -91,12 +99,13 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         })
         
         # VALIDATION LOOP
-        val_loss = validate_model(dense, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
+        val_loss = validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
         scheduler.step(val_loss)
         print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-        early_stopping(val_loss)
-        if early_stopping.early_stop:                       
-            print("Early stopping triggered.")
-            break
+        if early_stop:
+            early_stopping(val_loss)
+            if early_stopping.early_stop:                       
+                print("Early stopping triggered.")
+                break
 
     wandb.finish()

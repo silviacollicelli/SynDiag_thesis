@@ -2,19 +2,10 @@ data:
  clinical_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\clinical_case_metadata.parquet"
  folder_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\Dataset"
 
-early_stopping: 
- patience: 5
- min_delta: 0.001
-
-batch_size: 8
-epochs: 10
-k_fold: 5
 seed: 0
-device: str(device)
 augmentation: "flip+rotation+jitter"
 
 model: 
- last_leyer: "denseblock4"
  criterion: "CrossEntropyLoss"
  optimizer: Adam
  scheduler: "ReduceLROnPlateau"
