@@ -18,6 +18,8 @@ base_dataset = MyDataset(
     base_cfg['data']['folder_path']
 )
 
+print("done base dataset")
+
 labels = [s[1] for s in base_dataset.samples]
 cases = [s[2] for s in base_dataset.samples]
 
@@ -42,7 +44,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
     print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
 
     wandb.init(
-        project="newcv_project",
+        project="full_dataset_cv_project",
         group="cross_validation_run",
         name=f"fold_{fold+1}"
     )
@@ -84,7 +86,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         model.train()
         running_loss = 0.0
   
-        for images, labels in train_loader:
+        for images, labels in tqdm.tqdm(train_loader):
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
