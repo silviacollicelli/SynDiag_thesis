@@ -3,27 +3,26 @@ import cv2
 import pandas as pd
 from PIL import Image
 import yaml
+import numpy as np
 import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
 
-def video_to_tensors(video_path, frame_skip=1):
-
+def video_to_frames(video_path, num_frames):
     cap = cv2.VideoCapture(video_path)
+
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)       # Compute indices of frames to extract
     frames = []
-    idx = 0
-    
-    while True:
+
+    for idx in indices:
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)   # Jump directly to the frame
         ret, frame = cap.read()
         if not ret:
-            break
+            continue
 
-        if idx % frame_skip == 0:
-            # Convert BGR (OpenCV) to RGB
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            frames.append(frame)
-        
-        idx += 1
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR -> RGB
+        frames.append(frame)
 
     cap.release()
     return frames
@@ -46,7 +45,7 @@ val_transform = transforms.Compose([
 ])
 
 class MyDataset(Dataset):
-    def __init__(self, annotations_file, img_dir, frame_skip=30, transform=None):
+    def __init__(self, annotations_file, img_dir, numb_frames=16, transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
@@ -78,7 +77,7 @@ class MyDataset(Dataset):
                         self.samples.append((item_entry.path, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
                     
                     #if item_entry.name.endswith('.mp4'):    #if entry is a video file
-                    #    frames = video_to_tensors(item_entry.path, frame_skip)
+                    #    frames = video_to_tensors(item_entry.path, numb_frames)
                     #    for frame in frames:
                     #        self.samples.append((frame, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
 
