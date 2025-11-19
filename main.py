@@ -40,23 +40,19 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 defaults={
     "lr_blocks": 1e-4,
     "lr_classifier": 1e-3,
-    "freeze_strategy": "classifier_only",
+    "freeze_strategy": "last_block",
     "batch_size": 8,
-    "epochs": 20 
+    "epochs": 15 
 }
 all_fold_histories = []
 
 for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels, cases)):
     history = {"epoch": [], "train_loss": [], "val_loss": [], "accuracy": []}
-    wandb.init(
-        config=defaults
-        #group="cross_validation_run",
-        #name=f"fold_{fold+1}"
-    )
 
+    wandb.init(config=defaults)
     config = wandb.config
     early_stopping = EarlyStopping(base_cfg["early_stopping"]["patience"], base_cfg["early_stopping"]["min_delta"])
-    print(f"\n=== Fold {fold + 1} / {base_cfg["k_folds"]} ===")
+    print(f"\n=== Fold {fold + 1} ===")
     print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
 
     # --- Create SEPARATE dataset instances for train and val ---
@@ -82,8 +78,6 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
     val_loader = DataLoader(
         val_dataset, batch_size=config.batch_size, shuffle=False
     )
-
-    #dense, optimizer, criterion, scheduler = model(device)
 
     model, optimizer, criterion, scheduler = build_model(
         device=device,
@@ -113,7 +107,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         # VALIDATION LOOP
         val_loss, acc= validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
         scheduler.step(val_loss)
-        print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+        #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         if early_stop:
             early_stopping(val_loss)
             if early_stopping.early_stop:                       
@@ -125,6 +119,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         history["val_loss"].append(val_loss)
         history["accuracy"].append(acc)
     
+    print(f"\tfold {fold+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Accuracy: {acc:.4f}")
     all_fold_histories.append(history)
 
 mean_val_loss = np.zeros(config.epochs)

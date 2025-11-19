@@ -18,7 +18,7 @@ def log_image_table(images, predicted, labels, probs):
     wandb.log({"predictions_table":table}, commit=False)
 
 
-def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_idx=0, class_names=None, additional_metrics=None):
+def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_idx=0, class_names=None, additional_metrics=False):
     "Compute performance of the model on the validation dataset and log a wandb.Table"
     model.eval()
     correct, val_loss = 0, 0.0
@@ -67,24 +67,23 @@ def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_i
             specificity /= all_neg
             auc = roc_auc_score(all_labels, all_pos_prob)
             f1 = f1_score(all_labels, all_preds)
-
-        #wandb.log({
-        #    "conf_mat": wandb.plot.confusion_matrix(
-        #        preds=all_preds,
-        #        y_true=all_labels,
-        #        class_names=class_names,
-        #        title="Risk classification Confusion Matrix"
-        #    ), 
-        #    "roc_curve": wandb.plot.roc_curve(
-        #        all_labels, 
-        #        all_prob
-        #    ),
-        #    "val_loss": val_loss,
-        #    "val_accuracy": acc, 
-        #    "sensitivity": sensitivity, 
-        #    "specificity": specificity,
-        #    "AUC": auc, "F1-score": f1
-        #})
+            wandb.log({
+                "conf_mat": wandb.plot.confusion_matrix(
+                    preds=all_preds,
+                    y_true=all_labels,
+                    class_names=class_names,
+                    title="Risk classification Confusion Matrix"
+                ), 
+                "roc_curve": wandb.plot.roc_curve(
+                    all_labels, 
+                    all_prob
+                ),
+                "val_loss": val_loss,
+                "val_accuracy": acc, 
+                "sensitivity": sensitivity, 
+                "specificity": specificity,
+                "AUC": auc, "F1-score": f1
+            })
             
 
     return float(val_loss), acc
