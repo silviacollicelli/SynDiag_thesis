@@ -9,3 +9,10 @@ model:
  criterion: "CrossEntropyLoss"
  optimizer: Adam
  scheduler: "ReduceLROnPlateau"
+
+k_folds: 5
+
+early_stopping:
+ do_it: False
+ patience: 5
+ min_delta: 0.001

@@ -31,23 +31,33 @@ random.seed(base_cfg['seed'])
 np.random.seed(base_cfg['seed'])
 
 wandb.login()
-config = wandb.config
-cv = StratifiedGroupKFold(config.k_fold, shuffle=True)
+cv = StratifiedGroupKFold(base_cfg["k_folds"], shuffle=True)
 
-early_stop = bool(input("using early stopping? True/False "))
+early_stop = base_cfg["early_stopping"]["do_it"]
 class_names = ["benign", "malignant"]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels, cases)):
-    early_stopping = EarlyStopping(config.early_stopping.patience, config.early_stopping.min_delta)
-    print(f"\n=== Fold {fold + 1} / {config.k_fold} ===")
-    print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
+defaults={
+    "lr_blocks": 1e-4,
+    "lr_classifier": 1e-3,
+    "freeze_strategy": "classifier_only",
+    "batch_size": 8,
+    "epochs": 20 
+}
+all_fold_histories = []
 
+for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels, cases)):
+    history = {"epoch": [], "train_loss": [], "val_loss": [], "accuracy": []}
     wandb.init(
-        project="full_dataset_cv_project",
-        group="cross_validation_run",
-        name=f"fold_{fold+1}"
+        config=defaults
+        #group="cross_validation_run",
+        #name=f"fold_{fold+1}"
     )
+
+    config = wandb.config
+    early_stopping = EarlyStopping(base_cfg["early_stopping"]["patience"], base_cfg["early_stopping"]["min_delta"])
+    print(f"\n=== Fold {fold + 1} / {base_cfg["k_folds"]} ===")
+    print(f"Train samples: {len(train_idx)}, Val samples: {len(val_idx)}")
 
     # --- Create SEPARATE dataset instances for train and val ---
     train_data = MyDataset(
@@ -81,12 +91,12 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         lr_classifier=config.lr_classifier,
         freeze_strategy=config.freeze_strategy,
     )
-    print(f"start training {fold+1}")
-    for epoch in range(config['epochs']):
+
+    for epoch in tqdm.tqdm(range(config.epochs)):
         model.train()
         running_loss = 0.0
   
-        for images, labels in tqdm.tqdm(train_loader):
+        for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
             outputs = model(images)
@@ -96,12 +106,12 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
             running_loss += loss.item()
 
         train_loss = running_loss/len(train_loader)        
-        wandb.log({
-            "train_loss": train_loss
-        })
+        #wandb.log({
+        #   "train_loss": train_loss
+        #})
         
         # VALIDATION LOOP
-        val_loss = validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
+        val_loss, acc= validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
         scheduler.step(val_loss)
         print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         if early_stop:
@@ -110,4 +120,28 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
                 print("Early stopping triggered.")
                 break
 
-    wandb.finish()
+        history["epoch"].append(epoch)
+        history["train_loss"].append(train_loss)
+        history["val_loss"].append(val_loss)
+        history["accuracy"].append(acc)
+    
+    all_fold_histories.append(history)
+
+mean_val_loss = np.zeros(config.epochs)
+mean_train_loss = np.zeros(config.epochs)
+mean_accuracy = np.zeros(config.epochs)
+
+for epoch in range(config.epochs):
+    for k in range(base_cfg["k_folds"]):
+        mean_val_loss[epoch] += all_fold_histories[k]["val_loss"][epoch]
+        mean_train_loss[epoch] += all_fold_histories[k]["train_loss"][epoch]
+        mean_accuracy[epoch] += all_fold_histories[k]["accuracy"][epoch]
+
+    wandb.log({
+        "val_loss": mean_val_loss[epoch]/base_cfg["k_folds"],
+        "train_loss": mean_train_loss[epoch]/base_cfg["k_folds"],
+        "accuracy": mean_accuracy[epoch]/base_cfg["k_folds"]
+    })
+
+
+wandb.finish()

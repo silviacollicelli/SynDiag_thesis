@@ -77,10 +77,10 @@ class MyDataset(Dataset):
                     if item_entry.name.startswith(entry.name) and (item_entry.name.endswith(('.jpeg', '.png'))):    #if entry is an image file
                         self.samples.append((item_entry.path, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
                     
-                    if item_entry.name.endswith('.mp4'):    #if entry is a video file
-                        frames = video_to_tensors(item_entry.path, frame_skip)
-                        for frame in frames:
-                            self.samples.append((frame, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
+                    #if item_entry.name.endswith('.mp4'):    #if entry is a video file
+                    #    frames = video_to_tensors(item_entry.path, frame_skip)
+                    #    for frame in frames:
+                    #        self.samples.append((frame, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
 
     def __len__(self):
         return len(self.samples)
@@ -97,8 +97,8 @@ class MyDataset(Dataset):
         return image, label
     
 
-with open("config.yaml", "r") as file:
-    config = yaml.safe_load(file)
+#with open("config.yaml", "r") as file:
+#    base_cfg = yaml.safe_load(file)
 
-#data = MyDataset(config['data']['clinical_path'], config['data']['folder_path'])
+#data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'])
 #print("done dataset")
