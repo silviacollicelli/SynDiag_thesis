@@ -41,6 +41,7 @@ defaults={
     "lr_blocks": 1e-4,
     "lr_classifier": 1e-3,
     "freeze_strategy": "last_block",
+    "dropout_rate": 0.2,
     "batch_size": 8,
     "epochs": 15 
 }
@@ -83,7 +84,8 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
         device=device,
         lr_blocks=config.lr_blocks,
         lr_classifier=config.lr_classifier,
-        freeze_strategy=config.freeze_strategy,
+        dropout_rate=config.dropout_rate,
+        freeze_strategy=config.freeze_strategy
     )
 
     for epoch in tqdm.tqdm(range(config.epochs)):

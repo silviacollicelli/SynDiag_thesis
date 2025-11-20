@@ -4,7 +4,7 @@ import pandas as pd
 from PIL import Image
 import yaml
 import numpy as np
-import torchvision.transforms as transforms
+import torchvision.transforms as transforms     #change with v2?
 from torch.utils.data import Dataset
 
 
@@ -98,11 +98,8 @@ class MyDataset(Dataset):
         return image, label
     
 
-with open("config.yaml", "r") as file:
-    base_cfg = yaml.safe_load(file)
+#with open("config.yaml", "r") as file:
+#    base_cfg = yaml.safe_load(file)
 
-data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'])
-#print(len(data))
-for i in range(len(data)):
-    print(data.samples[i][1], data.samples[i][2])
-print("done dataset")
+#data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'])
+#print("done dataset")
