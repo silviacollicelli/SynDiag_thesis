@@ -3,9 +3,10 @@ command:
  - main.py
  - ${args}
 
-project: first_sweep_project
+project: sweep_no_borderline
+name: fixed_lr_values
 
-method: bayes
+method: grid
 
 metric:
  name: val_loss
@@ -14,17 +15,14 @@ metric:
 parameters: 
 
  lr_blocks:
-  distribution: uniform
-  min: 1e-5
-  max: 1e-3 
+  values: [1e-3, 1e-4, 1e-5]
 
- lr_classifier:
-  distribution: uniform
-  min: 1e-4
-  max: 1e-2
+ lr_ratio:    #to have lr_classifier always bigger than lr_blocks, I fix the ratio between them, so if lr_blocks=0.001 and lr_ratio=5, then lr_classifier=0.005
+  values: [2, 5, 10, 15]
 
  freeze_strategy:
-  values: ["classifier_only", "last_block", "two_last_blocks"]
+  #values: ["classifier_only", "last_block", "two_last_blocks"]
+  values: ["classifier_only", "last_block"]   #try without two_last_blocks
   
  dropout_rate:
   values: [0.0, 0.2, 0.3, 0.5]
@@ -33,4 +31,4 @@ parameters:
   values: [8, 16, 32]
 
  epochs: 
-  value: 20
+  values: [30, 40, 50]

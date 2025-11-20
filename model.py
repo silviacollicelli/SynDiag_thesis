@@ -27,7 +27,7 @@ import torchvision.models as models
 
 def build_model(device, 
                 lr_blocks, 
-                lr_classifier,
+                lr_ratio,
                 dropout_rate, 
                 freeze_strategy="classifier_only"):
 
@@ -83,8 +83,7 @@ def build_model(device,
     # Always optimize classifier
     params_to_optimize.append({
         'params': dense.classifier.parameters(),
-        'lr': lr_classifier,
-        'weight_decay': 1e-2
+        'lr': lr_blocks*lr_ratio
     })
 
     # Add block3 + block4 under SAME lr if they are unfrozen
@@ -99,11 +98,10 @@ def build_model(device,
     if len(block_params) > 0:
         params_to_optimize.append({
             'params': block_params,
-            'lr': lr_blocks,
-            'weight_decay': 1e-4
+            'lr': lr_blocks
         })
 
-    optimizer = torch.optim.AdamW(params_to_optimize)
+    optimizer = torch.optim.Adam(params_to_optimize)
 
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode='min', patience=2, factor=0.5

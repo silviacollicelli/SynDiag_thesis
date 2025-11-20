@@ -39,7 +39,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 defaults={
     "lr_blocks": 1e-4,
-    "lr_classifier": 1e-3,
+    "lr_ratio": 10,
     "freeze_strategy": "last_block",
     "dropout_rate": 0.2,
     "batch_size": 8,
@@ -83,7 +83,7 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
     model, optimizer, criterion, scheduler = build_model(
         device=device,
         lr_blocks=config.lr_blocks,
-        lr_classifier=config.lr_classifier,
+        lr_ratio=config.lr_ratio,
         dropout_rate=config.dropout_rate,
         freeze_strategy=config.freeze_strategy
     )
