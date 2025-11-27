@@ -49,11 +49,11 @@ class MyDataset(Dataset):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
-        labels_table = clinical_table[["clinical_case", "risk_class"]]
-        img_labels = dict(zip(labels_table['clinical_case'], labels_table['risk_class']))
+        labels_table = clinical_table[["clinical_case", "histological"]]
+        img_labels = dict(zip(labels_table['clinical_case'], labels_table['histological']))
         self.labels_dict = {
-            "benign": 0, 
-            "malignant": 1,
+            "serous_cystadenoma": 0, 
+            "high_grade_serous_adenocarcinoma": 1,
         #    "borderline": 1     #merging borderline with malignant
         }
         self.risk_dict = {
@@ -66,9 +66,7 @@ class MyDataset(Dataset):
         self.case_folders = [entry.name for entry in os.scandir(self.img_dir) if entry.is_dir()]
 
         for i in range(len(self.case_folders)):
-            if img_labels[self.case_folders[i]] == "borderline":    #neglect borderline case
-                continue
-            else:
+            if img_labels[self.case_folders[i]] == "serous_cystadenoma" or img_labels[self.case_folders[i]] == "high_grade_serous_adenocarcinoma":    #use only evident histologicals
                 case_path = os.path.join(self.img_dir, self.case_folders[i])
                 for entry in os.scandir(case_path):
                     item_folder_path = os.path.join(case_path, entry.name)
