@@ -30,6 +30,7 @@ def video_to_frames(video_path, num_frames):
             continue
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR -> RGB
+        frame = Image.fromarray(frame)
         frames.append(frame)
 
     cap.release()
@@ -103,10 +104,11 @@ class ImageBagDataset(Dataset):
         return instances, bag_name, bag_label
 
 #data = ImageBagDataset("/home/silvia.collicelli/data/Dataset","/home/silvia.collicelli/data/controlled_dataset_metadata.parquet", transform)
+root_dir = "/home/silvia.collicelli/data/Dataset"
+annotations_file = "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"
 
 inst_bag_loader = DataLoader(
-    ImageBagDataset("/home/silvia.collicelli/data/Dataset",
-                    "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet", transform),
+    ImageBagDataset(root_dir, annotations_file, transform, with_frames=True),
     batch_size=1,
     shuffle=False
 )
@@ -140,7 +142,7 @@ def save_bag_features(images_tensor, bag_id, out_feat_dir, out_labels_dir):
     np.save(path, feats_np)
     np.save(lab_path, bag_label.numpy())
 
-    #print(f"Saved: {path}   shape={feats_np.shape}")
+    print(f"Saved: {path}   shape={feats_np.shape}")
 
 
 for bag_id, (bag_images, bag_name, bag_label) in enumerate(inst_bag_loader):
