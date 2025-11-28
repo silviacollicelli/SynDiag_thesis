@@ -3,8 +3,8 @@ command:
  - main.py
  - ${args}
 
-project: sweep_no_borderline
-name: fixed_lr_values
+project: few_histologicals
+#name: fixed_lr_values
 
 method: grid
 

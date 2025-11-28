@@ -45,16 +45,23 @@ val_transform = transforms.Compose([
 ])
 
 class MyDataset(Dataset):
-    def __init__(self, annotations_file, img_dir, numb_frames=16, transform=None):
+    def __init__(self, 
+                 annotations_file, 
+                 img_dir, 
+                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 with_frames: bool = False,
+                 num_frames=16, 
+                 transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
-        labels_table = clinical_table[["clinical_case", "histological"]]
-        img_labels = dict(zip(labels_table['clinical_case'], labels_table['histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        considered_histo = set([h for group in holsbeke_histo for h in group])
+        self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
         self.labels_dict = {
-            "serous_cystadenoma": 0, 
-            "high_grade_serous_adenocarcinoma": 1,
-        #    "borderline": 1     #merging borderline with malignant
+            subtype: i
+            for i, group in enumerate(holsbeke_histo)
+            for subtype in group
         }
         self.risk_dict = {
             0: "benign", 
@@ -66,7 +73,7 @@ class MyDataset(Dataset):
         self.case_folders = [entry.name for entry in os.scandir(self.img_dir) if entry.is_dir()]
 
         for i in range(len(self.case_folders)):
-            if img_labels[self.case_folders[i]] == "serous_cystadenoma" or img_labels[self.case_folders[i]] == "high_grade_serous_adenocarcinoma":    #use only evident histologicals
+            if img_labels[self.case_folders[i]] in considered_histo:
                 case_path = os.path.join(self.img_dir, self.case_folders[i])
                 for entry in os.scandir(case_path):
                     item_folder_path = os.path.join(case_path, entry.name)
@@ -76,10 +83,10 @@ class MyDataset(Dataset):
                         if item_entry.name.startswith(entry.name) and (item_entry.name.endswith(('.jpeg', '.png'))):    #if entry is an image file
                             self.samples.append((item_entry.path, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
 
-                        #if item_entry.name.endswith('.mp4'):    #if entry is a video file
-                        #    frames = video_to_tensors(item_entry.path, numb_frames)
-                        #    for frame in frames:
-                        #        self.samples.append((frame, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
+                        if item_entry.name.endswith('.mp4') and with_frames:    #if entry is a video file
+                            frames = video_to_frames(item_entry.path, num_frames)
+                            for frame in frames:
+                                self.samples.append((frame, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
 
     def __len__(self):
         return len(self.samples)
@@ -96,8 +103,8 @@ class MyDataset(Dataset):
         return image, label
     
 
-#with open("config.yaml", "r") as file:
-#    base_cfg = yaml.safe_load(file)
+with open("config.yaml", "r") as file:
+    base_cfg = yaml.safe_load(file)
 
-#data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'])
-#print("done dataset")
+data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'])
+print(len(data))
