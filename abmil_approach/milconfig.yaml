@@ -1,0 +1,6 @@
+data:
+ features_path: "/home/silvia.collicelli/project/embeddings/features"
+ labels_path: "/home/silvia.collicelli/project/embeddings/labels"
+
+k_folds: 5
+seed: 0

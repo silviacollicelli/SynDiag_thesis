@@ -1,7 +1,4 @@
-command:
- - .venv/bin/python
- - main.py
- - ${args}
+program: main.py
 
 project: few_histologicals
 #name: fixed_lr_values
