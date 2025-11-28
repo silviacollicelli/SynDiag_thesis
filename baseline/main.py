@@ -50,7 +50,9 @@ all_fold_histories = []
 for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels, cases)):
     history = {"epoch": [], "train_loss": [], "val_loss": [], "accuracy": []}
 
-    wandb.init(config=defaults)
+    wandb.init(config=defaults,
+               project="new_test_cv",
+               name=f"fold_{fold+1}")
     config = wandb.config
     early_stopping = EarlyStopping(base_cfg["early_stopping"]["patience"], base_cfg["early_stopping"]["min_delta"])
     print(f"\n=== Fold {fold + 1} ===")
@@ -116,29 +118,35 @@ for fold, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labe
                 print("Early stopping triggered.")
                 break
 
-        history["epoch"].append(epoch)
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-        history["accuracy"].append(acc)
+        wandb.log({
+            "val_loss": val_loss,
+            "train_loss": train_loss,
+            "accuracy": acc
+        })
+
+        #history["epoch"].append(epoch)
+        #history["train_loss"].append(train_loss)
+        #history["val_loss"].append(val_loss)
+        #history["accuracy"].append(acc)
     
-    print(f"\tfold {fold+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Accuracy: {acc:.4f}")
-    all_fold_histories.append(history)
+    #print(f"\tfold {fold+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Accuracy: {acc:.4f}")
+    #all_fold_histories.append(history)
 
-mean_val_loss = np.zeros(config.epochs)
-mean_train_loss = np.zeros(config.epochs)
-mean_accuracy = np.zeros(config.epochs)
-
-for epoch in range(config.epochs):
-    for k in range(base_cfg["k_folds"]):
-        mean_val_loss[epoch] += all_fold_histories[k]["val_loss"][epoch]
-        mean_train_loss[epoch] += all_fold_histories[k]["train_loss"][epoch]
-        mean_accuracy[epoch] += all_fold_histories[k]["accuracy"][epoch]
-
-    wandb.log({
-        "val_loss": mean_val_loss[epoch]/base_cfg["k_folds"],
-        "train_loss": mean_train_loss[epoch]/base_cfg["k_folds"],
-        "accuracy": mean_accuracy[epoch]/base_cfg["k_folds"]
-    })
+#mean_val_loss = np.zeros(config.epochs)
+#mean_train_loss = np.zeros(config.epochs)
+#mean_accuracy = np.zeros(config.epochs)
+#
+#for epoch in range(config.epochs):
+#    for k in range(base_cfg["k_folds"]):
+#        mean_val_loss[epoch] += all_fold_histories[k]["val_loss"][epoch]
+#        mean_train_loss[epoch] += all_fold_histories[k]["train_loss"][epoch]
+#        mean_accuracy[epoch] += all_fold_histories[k]["accuracy"][epoch]
+#
+#    wandb.log({
+#        "val_loss": mean_val_loss[epoch]/base_cfg["k_folds"],
+#        "train_loss": mean_train_loss[epoch]/base_cfg["k_folds"],
+#        "accuracy": mean_accuracy[epoch]/base_cfg["k_folds"]
+#    })
 
 
 wandb.finish()

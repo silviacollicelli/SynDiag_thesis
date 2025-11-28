@@ -109,3 +109,5 @@ def build_model(device,
     criterion = nn.CrossEntropyLoss()
 
     return dense, optimizer, criterion, scheduler
+
+    
