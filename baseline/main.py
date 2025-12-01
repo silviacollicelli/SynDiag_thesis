@@ -15,7 +15,8 @@ with open("config.yaml", "r") as file:
 
 base_dataset = MyDataset(
     base_cfg['data']['clinical_path'],
-    base_cfg['data']['folder_path']
+    base_cfg['data']['folder_path'], 
+    with_frames=True
 )
 
 print("done base dataset")
@@ -53,11 +54,13 @@ val_data = []
 all_train_data = MyDataset(
     base_cfg['data']['clinical_path'],
     base_cfg['data']['folder_path'],
+    with_frames=True,
     transform=train_transform
 )
 all_val_data = MyDataset(
     base_cfg['data']['clinical_path'],
     base_cfg['data']['folder_path'],
+    with_frames=True,
     transform=val_transform
 )
 
