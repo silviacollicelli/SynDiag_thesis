@@ -1,9 +1,9 @@
 program: main.py
 
-project: few_histologicals
+project: test_smalldata
 #name: fixed_lr_values
 
-method: random
+method: grid
 
 metric:
  name: val_loss
@@ -11,21 +11,24 @@ metric:
 
 parameters: 
 
+ fold:
+  values: [0, 1, 2, 3, 4]
+  
  lr_blocks:
   values: [1e-4, 1e-5]
 
- lr_ratio:    #to have lr_classifier always bigger than lr_blocks, I fix the ratio between them, so if lr_blocks=0.001 and lr_ratio=5, then lr_classifier=0.005
-  values: [5, 10, 15]
-
- freeze_strategy:
-  #values: ["classifier_only", "last_block", "two_last_blocks"]
-  values: ["classifier_only", "last_block"]   #try without two_last_blocks
-  
- dropout_rate:
-  values: [0.0, 0.3, 0.5]
-
- batch_size: 
-  values: [8, 16, 32]
-
- epochs: 
-  value: 60
+# lr_ratio:    #to have lr_classifier always bigger than lr_blocks, I fix the ratio between them, so if lr_blocks=0.001 and lr_ratio=5, then lr_classifier=0.005
+#  values: [5, 10, 15]
+#
+# freeze_strategy:
+#  #values: ["classifier_only", "last_block", "two_last_blocks"]
+#  values: ["classifier_only", "last_block"]   #try without two_last_blocks
+#  
+# dropout_rate:
+#  values: [0.0, 0.3, 0.5]
+#
+# batch_size: 
+#  values: [8, 16, 32]
+#
+# epochs: 
+#  value: 60

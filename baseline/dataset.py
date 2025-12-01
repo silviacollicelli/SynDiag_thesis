@@ -48,14 +48,16 @@ class MyDataset(Dataset):
     def __init__(self, 
                  annotations_file, 
                  img_dir, 
-                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
                  with_frames: bool = False,
                  num_frames=16, 
                  transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
         self.labels_dict = {

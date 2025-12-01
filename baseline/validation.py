@@ -17,6 +17,21 @@ def log_image_table(images, predicted, labels, probs):
         table.add_data(wandb.Image((img.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)), pred, targ, *prob.numpy())
     wandb.log({"predictions_table":table}, commit=False)
 
+def train_model(model, train_loader, device, optimizer, criterion):
+    model.train()
+    running_loss = 0.0
+  
+    for images, labels in train_loader:
+        images, labels = images.to(device), labels.to(device)
+        optimizer.zero_grad()
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        running_loss += loss.item()
+
+    train_loss = running_loss/len(train_loader)
+    return train_loss 
 
 def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_idx=0, class_names=None, additional_metrics=False):
     "Compute performance of the model on the validation dataset and log a wandb.Table"
