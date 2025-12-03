@@ -93,8 +93,6 @@ def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_i
                     all_labels, 
                     all_prob
                 ),
-                "val_loss": val_loss,
-                "val_accuracy": acc, 
                 "sensitivity": sensitivity, 
                 "specificity": specificity,
                 "AUC": auc, "F1-score": f1

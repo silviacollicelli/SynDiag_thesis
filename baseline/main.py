@@ -94,7 +94,7 @@ for epoch in tqdm.tqdm(range(config.epochs)):
     train_loss = train_model(model, train_loader, device, optimizer, criterion)
 
     # VALIDATION LOOP
-    val_loss, acc= validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names)
+    val_loss, acc= validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names, additional_metrics=True)
     scheduler.step(val_loss)
     print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
     if early_stop:
@@ -106,7 +106,7 @@ for epoch in tqdm.tqdm(range(config.epochs)):
     wandb.log({
         "val_loss": val_loss,
         "train_loss": train_loss,
-        "accuracy": acc
+        "val_accuracy": acc
     })
 
 wandb.finish()
