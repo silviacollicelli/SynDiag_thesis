@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import torch
+import yaml
 from torchvision import models
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as T
@@ -41,14 +42,16 @@ class ImageBagDataset(Dataset):
                  root_dir: str,
                  annotations_file: str,
                  transform,
-                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
                  with_frames: bool = False, 
                  numb_frames: int = 16, 
                  ) -> None:
         self.root_dir = root_dir
         self.bags = []
         clinical_table = pd.read_parquet(annotations_file)
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
 
@@ -104,8 +107,12 @@ class ImageBagDataset(Dataset):
         return instances, bag_name, bag_label
 
 #data = ImageBagDataset("/home/silvia.collicelli/data/Dataset","/home/silvia.collicelli/data/controlled_dataset_metadata.parquet", transform)
-root_dir = "/home/silvia.collicelli/data/Dataset"
-annotations_file = "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"
+with open("milconfig.yaml", "r") as file:
+    base_cfg = yaml.safe_load(file)
+root_dir = base_cfg["data"]["root_dir"]
+annotations_file = base_cfg["data"]["annotations_file"]
+features_path = base_cfg["data"]["features_path"]
+labels_path = base_cfg["data"]["labels_path"]
 
 inst_bag_loader = DataLoader(
     ImageBagDataset(root_dir, annotations_file, transform, with_frames=True),
@@ -124,16 +131,15 @@ class DenseNet121Extractor(nn.Module):
     def forward(self, x):
         return self.model(x)
     
-extractor = DenseNet121Extractor().cuda().eval()
-out_feat_dir = "/home/silvia.collicelli/project/embeddings/features"
-out_labels_dir = "/home/silvia.collicelli/project/embeddings/labels"
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+extractor = DenseNet121Extractor().to(device).eval()
 
 def save_bag_features(images_tensor, bag_id, out_feat_dir, out_labels_dir):
     os.makedirs(out_feat_dir, exist_ok=True)
     os.makedirs(out_labels_dir, exist_ok=True)
 
     with torch.no_grad():
-        feats = extractor(images_tensor.cuda())   # (bag_size, 1024)
+        feats = extractor(images_tensor.to(device))   # (bag_size, 1024)
 
     feats_np = feats.cpu().numpy()               # convert to numpy
 
@@ -147,4 +153,4 @@ def save_bag_features(images_tensor, bag_id, out_feat_dir, out_labels_dir):
 
 for bag_id, (bag_images, bag_name, bag_label) in enumerate(inst_bag_loader):
     bag_images = bag_images.squeeze(0)
-    save_bag_features(bag_images, bag_name, out_feat_dir, out_labels_dir)
+    save_bag_features(bag_images, bag_name, features_path, labels_path)

@@ -1,0 +1,122 @@
+import torch
+import wandb
+import numpy as np
+import torch.nn as nn
+from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
+
+def denormalize(img_tensor):
+    mean = torch.tensor([0.485, 0.456, 0.406], device=img_tensor.device)
+    std = torch.tensor([0.229, 0.224, 0.225], device=img_tensor.device)
+    img_tensor = img_tensor * std[:, None, None] + mean[:, None, None]
+    return img_tensor.clamp(0, 1)
+
+def log_image_table(images, predicted, labels, probs):
+    "Log a wandb.Table with (img, pred, target, scores)"
+    table = wandb.Table(columns=["image", "pred", "target"]+[f"score_{i}" for i in range(2)])
+    for img, pred, targ, prob in zip(images.to("cpu"), predicted.to("cpu"), labels.to("cpu"), probs.to("cpu")):
+        img = denormalize(img)
+        table.add_data(wandb.Image((img.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)), pred, targ, *prob.numpy())
+    wandb.log({"predictions_table":table}, commit=False)
+
+def train(model, device, criterion, optimizer, dataloader):
+    model.train()
+
+    sum_loss = 0.0
+    sum_correct = 0.0
+    for batch in dataloader:
+        batch = batch.to(device)
+        optimizer.zero_grad()
+        out = model(batch["X"], batch["mask"])
+        loss = criterion(out, batch["Y"].float())
+        loss.backward()
+        optimizer.step()
+        pred = (out > 0).float()
+        sum_correct += (pred == batch["Y"]).sum().item()
+        sum_loss += loss.item()
+        
+    train_loss = sum_loss / len(dataloader)
+    train_acc = sum_correct / len(dataloader.dataset)
+
+    return train_loss, train_acc
+
+def val(model, device, criterion, dataloader, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False):
+    model.eval()
+
+    sum_loss = 0.0
+    Y_pred = []
+    Y_true = []
+    pos_probs = []
+    with torch.no_grad():
+        for batch in dataloader:
+            batch = batch.to(device)
+            out = model(batch["X"], batch["mask"])
+            loss = criterion(out, batch["Y"].float())
+            pred = (out > 0).float()
+            pos_probs.append(out)
+            Y_pred.append(pred)
+            Y_true.append(batch["Y"])
+            sum_loss += loss.item()
+
+    sigmoid = nn.Sigmoid()
+    pos_probs = sigmoid(torch.cat(pos_probs)).tolist()
+    all_probs = [(1-p, p) for p in pos_probs]
+    Y_true = torch.cat(Y_true).int().tolist()
+    Y_pred = torch.cat(Y_pred).int().tolist()
+    #print(pos_probs, Y_pred, Y_true)
+    val_loss = sum_loss / len(dataloader)
+    val_acc = accuracy_score(Y_true, Y_pred)
+    early_stopping = EarlyStopping(patience, min_delta)
+
+    if additional_metrics:
+        precision = precision_score(Y_true, Y_pred)
+        recall = recall_score(Y_true, Y_pred)
+        specificity = recall_score(Y_true, Y_pred, pos_label=0)
+        auc = roc_auc_score(Y_true, pos_probs)
+        f1 = f1_score(Y_true, Y_pred)
+
+        wandb.log({
+            "precision": precision,
+            "recall": recall,
+            "specificity": specificity,
+            "f1_score": f1,
+            "conf_mat": wandb.plot.confusion_matrix(
+                    preds=Y_pred,
+                    y_true=Y_true,
+                    class_names=["benign", "malignant"],
+                    title="Risk classification Confusion Matrix"
+                ),
+            "AUC": auc, 
+            "roc_curve": wandb.plot.roc_curve(
+                    Y_true, 
+                    all_probs
+                ),
+        })
+    
+    if early_stop:
+        early_stopping(val_loss)
+        if early_stopping.early_stop:                       
+            print("Early stopping triggered.")
+            return val_loss, val_acc, True
+
+    return val_loss, val_acc, False
+
+
+class EarlyStopping:
+    def __init__(self, patience=5, min_delta=0.0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.best_loss = None
+        self.counter = 0
+        self.early_stop = False
+
+    def __call__(self, val_loss):
+        if self.best_loss is None:
+            self.best_loss = val_loss
+        elif val_loss > self.best_loss - self.min_delta:
+            self.counter += 1
+            print(f"EarlyStopping counter: {self.counter} out of {self.patience}")
+            if self.counter >= self.patience:
+                self.early_stop = True
+        else:
+            self.best_loss = val_loss
+            self.counter = 0

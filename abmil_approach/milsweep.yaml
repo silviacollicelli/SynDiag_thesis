@@ -1,0 +1,27 @@
+program: abmil.py
+project: ABMIL_sweep
+method: grid
+metric:
+ name: val_loss
+ goal: minimize
+
+#tot of sweep configurations: 480
+parameters: 
+
+ fold:
+  values: [0, 1, 2, 3, 4]
+  
+ l_rate:
+  values: [1e-3, 5e-3, 1e-4, 1e-5]
+
+ batch_size: 
+  values: [16, 32]
+
+ epochs: 
+  value: 60
+
+ att_dim:
+  values: [32, 64, 128, 256]
+
+ att_act: 
+  values: ["tanh", "relu", "gelu"]
