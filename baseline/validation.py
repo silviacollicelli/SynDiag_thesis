@@ -33,7 +33,7 @@ def train_model(model, train_loader, device, optimizer, criterion):
     train_loss = running_loss/len(train_loader)
     return train_loss 
 
-def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_idx=0, class_names=None, additional_metrics=False):
+def validate_model(model, valid_dl, loss_func, device, epoch, log_images=False, batch_idx=0, class_names=None, additional_metrics=False):
     "Compute performance of the model on the validation dataset and log a wandb.Table"
     model.eval()
     correct, val_loss = 0, 0.0
@@ -95,8 +95,9 @@ def validate_model(model, valid_dl, loss_func, device, log_images=False, batch_i
                 ),
                 "sensitivity": sensitivity, 
                 "specificity": specificity,
-                "AUC": auc, "F1-score": f1
-            })
+                "AUC": auc, "F1-score": f1},
+                step=epoch
+                )
             
 
     return float(val_loss), acc

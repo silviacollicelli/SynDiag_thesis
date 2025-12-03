@@ -1,5 +1,6 @@
 import os
 import cv2
+import glob
 import pandas as pd
 from PIL import Image
 import yaml
@@ -8,24 +9,43 @@ import torchvision.transforms as transforms
 from torch.utils.data import Dataset
 
 
-def video_to_frames(video_path, num_frames):
+def video_to_frames(video_path, output_dir, num_frames=32):
+    # Build the expected list of frame paths
+    expected_paths = [
+        os.path.join(output_dir, f"frame_{i:04d}.jpg")
+        for i in range(num_frames)
+    ]
+
+    # If directory exists and has all required frames, skip extraction
+    if os.path.exists(output_dir):
+        existing_frames = glob.glob(os.path.join(output_dir, "frame_*.jpg"))
+        if len(existing_frames) == num_frames:
+            #print(f"Frames already exist — skipping extraction.")
+            return expected_paths
+
+        print(f"Frame count mismatch: found {len(existing_frames)}, expected {num_frames}. Resaving frames...")
+    else:
+        os.makedirs(output_dir)
+
+    # Extract frames if needed
     cap = cv2.VideoCapture(video_path)
-
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)       # Compute indices of frames to extract
-    frames = []
+    indices = np.linspace(0, total_frames - 1, num_frames, dtype=int)
 
-    for idx in indices:
-        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)   # Jump directly to the frame
+    for i, idx in enumerate(indices):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
         ret, frame = cap.read()
         if not ret:
             continue
 
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)  # Convert BGR -> RGB
-        frames.append(frame)
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        filename = expected_paths[i]
+        cv2.imwrite(filename, cv2.cvtColor(frame_rgb, cv2.COLOR_RGB2BGR))
 
     cap.release()
-    return frames
+    print(f"Saved {num_frames} frames to {output_dir}")
+
+    return expected_paths
 
 train_transform = transforms.Compose([
     transforms.Resize((256, 256)),
@@ -48,16 +68,16 @@ class MyDataset(Dataset):
     def __init__(self, 
                  annotations_file, 
                  img_dir, 
-                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
-                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
-                 with_frames: bool = False,
-                 num_frames=16, 
+                 frames_fold,
+                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 #holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
+                 with_frames: bool = True,
                  transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
-        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
         self.labels_dict = {
@@ -86,9 +106,11 @@ class MyDataset(Dataset):
                             self.samples.append((item_entry.path, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
 
                         if item_entry.name.endswith('.mp4') and with_frames:    #if entry is a video file
-                            frames = video_to_frames(item_entry.path, num_frames)
-                            for frame in frames:
-                                self.samples.append((frame, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
+                            
+                            out_fold_frames = os.path.join(frames_fold, self.case_folders[i])
+                            frames_paths = video_to_frames(item_entry.path, out_fold_frames)
+                            for path in frames_paths:
+                                self.samples.append((path, self.labels_dict[img_labels[self.case_folders[i]]], self.case_folders[i]))
 
     def __len__(self):
         return len(self.samples)
@@ -98,7 +120,7 @@ class MyDataset(Dataset):
         if isinstance(sample, str):  # image path
             image = Image.open(sample).convert("RGB")
         else:
-            image = Image.fromarray(sample)
+            print(f"sample {sample} not found")
         if self.transform:
             image = self.transform(image)
 
@@ -108,5 +130,5 @@ class MyDataset(Dataset):
 with open("config.yaml", "r") as file:
     base_cfg = yaml.safe_load(file)
 
-#data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'])
+#data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'], base_cfg["data"]["frames_folder"])
 #print(len(data))

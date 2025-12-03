@@ -13,10 +13,24 @@ from dataset import MyDataset, train_transform, val_transform
 with open("config.yaml", "r") as file:
     base_cfg = yaml.safe_load(file)
 
+defaults={
+    "lr_blocks": 1e-4,
+    "lr_ratio": 10,
+    "freeze_strategy": "last_block",
+    "dropout_rate": 0.2,
+    "batch_size": 8,
+    "epochs": 5,
+    "fold": 0,
+    "num_frames": 8
+}
+wandb.login()
+wandb.init(config=defaults)
+config = wandb.config
+
 base_dataset = MyDataset(
     base_cfg['data']['clinical_path'],
     base_cfg['data']['folder_path'], 
-    with_frames=True
+    base_cfg['data']['frames_folder']
 )
 
 print("done base dataset")
@@ -31,22 +45,11 @@ torch.manual_seed(base_cfg['seed'])
 random.seed(base_cfg['seed'])
 np.random.seed(base_cfg['seed'])
 
-wandb.login()
 cv = StratifiedGroupKFold(base_cfg["k_folds"], shuffle=True)
 
 early_stop = base_cfg["early_stopping"]["do_it"]
 class_names = ["benign", "malignant"]
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-defaults={
-    "lr_blocks": 1e-4,
-    "lr_ratio": 10,
-    "freeze_strategy": "last_block",
-    "dropout_rate": 0.2,
-    "batch_size": 8,
-    "epochs": 5,
-    "fold": 0
-}
 
 train_data = []
 val_data = []
@@ -54,13 +57,13 @@ val_data = []
 all_train_data = MyDataset(
     base_cfg['data']['clinical_path'],
     base_cfg['data']['folder_path'],
-    with_frames=True,
+    base_cfg['data']['frames_folder'],
     transform=train_transform
 )
 all_val_data = MyDataset(
     base_cfg['data']['clinical_path'],
     base_cfg['data']['folder_path'],
-    with_frames=True,
+    base_cfg['data']['frames_folder'],
     transform=val_transform
 )
 
@@ -69,8 +72,6 @@ for _, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(labels)), labels,
     val_data.append(Subset(all_val_data, val_idx))
     #print(len(Subset(all_train_data, train_idx)), len(Subset(all_val_data, val_idx)))
 
-wandb.init(config=defaults)
-config = wandb.config
 early_stopping = EarlyStopping(base_cfg["early_stopping"]["patience"], base_cfg["early_stopping"]["min_delta"])
 
 print(f"Train samples: {len(train_data[config.fold])}, Val samples: {len(val_data[config.fold])}")
@@ -94,9 +95,9 @@ for epoch in tqdm.tqdm(range(config.epochs)):
     train_loss = train_model(model, train_loader, device, optimizer, criterion)
 
     # VALIDATION LOOP
-    val_loss, acc= validate_model(model, val_loader, criterion, device, log_images=False, batch_idx=1, class_names=class_names, additional_metrics=True)
+    val_loss, acc= validate_model(model, val_loader, criterion, device, epoch, log_images=False, batch_idx=1, class_names=class_names, additional_metrics=True)
     scheduler.step(val_loss)
-    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
+    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
     if early_stop:
         early_stopping(val_loss)
         if early_stopping.early_stop:                       
@@ -106,7 +107,8 @@ for epoch in tqdm.tqdm(range(config.epochs)):
     wandb.log({
         "val_loss": val_loss,
         "train_loss": train_loss,
-        "val_accuracy": acc
-    })
+        "val_accuracy": acc},
+        step=epoch
+        )
 
 wandb.finish()
