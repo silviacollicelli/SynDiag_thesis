@@ -5,7 +5,7 @@ import tqdm
 import wandb
 import yaml
 from model import build_model
-from validation import EarlyStopping, validate_model, train_model
+from validation import EarlyStopping, validate_model, train_model, train, val
 from torch.utils.data import Subset, DataLoader
 from sklearn.model_selection import StratifiedGroupKFold
 from dataset import MyDataset, train_transform, val_transform
@@ -92,17 +92,12 @@ model, optimizer, criterion, scheduler = build_model(
 
 for epoch in tqdm.tqdm(range(config.epochs)):
     # TRAINING LOOP       
-    train_loss = train_model(model, train_loader, device, optimizer, criterion)
+    train_loss = train(model, device, criterion, optimizer, train_loader)
 
     # VALIDATION LOOP
-    val_loss, acc= validate_model(model, val_loader, criterion, device, epoch, log_images=False, batch_idx=1, class_names=class_names, additional_metrics=True)
+    val_loss, acc, stop = val(model, device, criterion, val_loader, epoch, additional_metrics=True)
     scheduler.step(val_loss)
-    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
-    if early_stop:
-        early_stopping(val_loss)
-        if early_stopping.early_stop:                       
-            print("Early stopping triggered.")
-            break
+    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
 
     wandb.log({
         "val_loss": val_loss,
@@ -110,5 +105,8 @@ for epoch in tqdm.tqdm(range(config.epochs)):
         "val_accuracy": acc},
         step=epoch
         )
+    
+    if stop:
+        break
 
 wandb.finish()

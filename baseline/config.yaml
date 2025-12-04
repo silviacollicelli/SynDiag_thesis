@@ -2,6 +2,7 @@ data:
  clinical_path: "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"
  folder_path: "/home/silvia.collicelli/data/Dataset"
  frames_folder: "/home/silvia.collicelli/frames32"
+ #frames_folder: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\frames32"
  #clinical_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\clinical_case_metadata.parquet"
  #folder_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\naive_baseline\\raw_dataset\\artifacts\\Dataset"
 

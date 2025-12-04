@@ -1,7 +1,7 @@
 import torch
 import wandb
 import numpy as np
-from sklearn.metrics import roc_auc_score, f1_score
+from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
 
 def denormalize(img_tensor):
     mean = torch.tensor([0.485, 0.456, 0.406], device=img_tensor.device)
@@ -33,6 +33,24 @@ def train_model(model, train_loader, device, optimizer, criterion):
     train_loss = running_loss/len(train_loader)
     return train_loss 
 
+def train(model, device, criterion, optimizer, train_loader):
+    model.train()
+
+    sum_loss = 0.0
+    for images, labels in train_loader:
+        images, labels = images.to(device), labels.to(device)
+        optimizer.zero_grad()
+        outputs = model(images)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+        sum_loss += loss.item()
+        
+    train_loss = sum_loss / len(train_loader)
+
+    return train_loss
+
+
 def validate_model(model, valid_dl, loss_func, device, epoch, log_images=False, batch_idx=0, class_names=None, additional_metrics=False):
     "Compute performance of the model on the validation dataset and log a wandb.Table"
     model.eval()
@@ -46,8 +64,10 @@ def validate_model(model, valid_dl, loss_func, device, epoch, log_images=False, 
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             pos_prob = outputs.softmax(dim=1)[:,1]
-            val_loss += loss_func(outputs, labels)*labels.size(0)
+            val_loss += loss_func(outputs, labels)
             _, predicted = torch.max(outputs.data, 1)
+            #print(val_loss, labels.size(0))
+            #print(outputs, pos_prob, predicted, labels)
             correct += (predicted == labels).sum().item()
 
             all_preds.extend(predicted.cpu().numpy())
@@ -74,7 +94,7 @@ def validate_model(model, valid_dl, loss_func, device, epoch, log_images=False, 
                     specificity += 1
         
         # Compute global metrics
-        val_loss /= len(valid_dl.dataset)
+        val_loss /= len(valid_dl)
         acc = correct / len(valid_dl.dataset)
 
         if additional_metrics: 
@@ -102,6 +122,66 @@ def validate_model(model, valid_dl, loss_func, device, epoch, log_images=False, 
 
     return float(val_loss), acc
 
+def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False):
+    model.eval()
+
+    sum_loss = 0.0
+    Y_pred = []
+    Y_true = []
+    pos_probs = []
+    with torch.no_grad():
+        for _, (images, labels) in enumerate(dataloader):
+            images, labels = images.to(device), labels.to(device)
+            outputs = model(images)
+            pos_prob = outputs.softmax(dim=1)[:,1]
+            loss = criterion(outputs, labels)
+            _, predicted = torch.max(outputs.data, 1)
+            pos_probs.append(pos_prob)
+            Y_pred.append(predicted)
+            Y_true.append(labels)
+            sum_loss += loss.item()
+
+    pos_probs = pos_probs[0].tolist()
+    all_probs = [(1-p, p) for p in pos_probs]
+    Y_true = Y_true[0].tolist()
+    Y_pred = Y_pred[0].tolist()
+    val_loss = sum_loss / len(dataloader)
+    val_acc = accuracy_score(Y_true, Y_pred)
+    early_stopping = EarlyStopping(patience, min_delta)
+
+    if additional_metrics:
+        precision = precision_score(Y_true, Y_pred)
+        recall = recall_score(Y_true, Y_pred)
+        specificity = recall_score(Y_true, Y_pred, pos_label=0)
+        auc = roc_auc_score(Y_true, pos_probs)
+        f1 = f1_score(Y_true, Y_pred)
+
+        wandb.log({
+            "precision": precision,
+            "recall": recall,
+            "specificity": specificity,
+            "f1_score": f1,
+            "conf_mat": wandb.plot.confusion_matrix(
+                    preds=Y_pred,
+                    y_true=Y_true,
+                    class_names=["benign", "malignant"],
+                    title="Risk classification Confusion Matrix"
+                ),
+            "AUC": auc, 
+            "roc_curve": wandb.plot.roc_curve(
+                    Y_true, 
+                    all_probs
+                )},
+            step=epoch
+            )
+    
+    if early_stop:
+        early_stopping(val_loss)
+        if early_stopping.early_stop:                       
+            print("Early stopping triggered.")
+            return val_loss, val_acc, True
+
+    return val_loss, val_acc, False
 
 class EarlyStopping:
     def __init__(self, patience=5, min_delta=0.0):
