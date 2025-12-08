@@ -2,21 +2,8 @@ import torch
 import wandb
 import numpy as np
 import torch.nn as nn
+from torchmetrics.classification import BinaryF1Score
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
-
-def denormalize(img_tensor):
-    mean = torch.tensor([0.485, 0.456, 0.406], device=img_tensor.device)
-    std = torch.tensor([0.229, 0.224, 0.225], device=img_tensor.device)
-    img_tensor = img_tensor * std[:, None, None] + mean[:, None, None]
-    return img_tensor.clamp(0, 1)
-
-def log_image_table(images, predicted, labels, probs):
-    "Log a wandb.Table with (img, pred, target, scores)"
-    table = wandb.Table(columns=["image", "pred", "target"]+[f"score_{i}" for i in range(2)])
-    for img, pred, targ, prob in zip(images.to("cpu"), predicted.to("cpu"), labels.to("cpu"), probs.to("cpu")):
-        img = denormalize(img)
-        table.add_data(wandb.Image((img.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)), pred, targ, *prob.numpy())
-    wandb.log({"predictions_table":table}, commit=False)
 
 def train(model, device, criterion, optimizer, dataloader):
     model.train()
@@ -39,7 +26,7 @@ def train(model, device, criterion, optimizer, dataloader):
 
     return train_loss, train_acc
 
-def val(model, device, criterion, dataloader, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False):
+def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False):
     model.eval()
 
     sum_loss = 0.0
@@ -68,29 +55,30 @@ def val(model, device, criterion, dataloader, early_stop=False, patience=5, min_
     early_stopping = EarlyStopping(patience, min_delta)
 
     if additional_metrics:
-        precision = precision_score(Y_true, Y_pred)
+        precision = precision_score(Y_true, Y_pred, zero_division=0.0)
         recall = recall_score(Y_true, Y_pred)
         specificity = recall_score(Y_true, Y_pred, pos_label=0)
         auc = roc_auc_score(Y_true, pos_probs)
         f1 = f1_score(Y_true, Y_pred)
-
         wandb.log({
             "precision": precision,
             "recall": recall,
             "specificity": specificity,
             "f1_score": f1,
-            "conf_mat": wandb.plot.confusion_matrix(
-                    preds=Y_pred,
-                    y_true=Y_true,
-                    class_names=["benign", "malignant"],
-                    title="Risk classification Confusion Matrix"
-                ),
-            "AUC": auc, 
-            "roc_curve": wandb.plot.roc_curve(
-                    Y_true, 
-                    all_probs
-                ),
-        })
+            #"conf_mat": wandb.plot.confusion_matrix(
+            #        preds=Y_pred,
+            #        y_true=Y_true,
+            #        class_names=["benign", "malignant"],
+            #        title="Risk classification Confusion Matrix"
+            #    ),
+            #"roc_curve": wandb.plot.roc_curve(
+            #        Y_true, 
+            #        all_probs
+            #    ),
+            "AUC": auc 
+            },
+            step=epoch
+        )
     
     if early_stop:
         early_stopping(val_loss)

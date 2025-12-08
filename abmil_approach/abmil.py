@@ -50,7 +50,7 @@ defaults={
 }
 
 wandb.login()
-wandb.init(project="test abmil", config=defaults)
+wandb.init(config=defaults)
 config = wandb.config
 
 train_dataloader = DataLoader(
@@ -69,12 +69,12 @@ scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
     optimizer, mode='min', patience=2, factor=0.5
 )
 
-for epoch in range(config.epochs):
+for epoch in tqdm.tqdm(range(config.epochs)):
     # TRAINING LOOP       
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
 
     # VALIDATION LOOP
-    val_loss, val_acc, stop = val(model, device, criterion, val_dataloader)
+    val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
     scheduler.step(val_loss)
     #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
@@ -82,8 +82,9 @@ for epoch in range(config.epochs):
         "val_loss": val_loss,
         "train_loss": train_loss,
         "val_accuracy": val_acc,
-        "train_accuracy": train_acc
-    })
+        "train_accuracy": train_acc},
+        step=epoch
+        )
 
     if stop:
         break
