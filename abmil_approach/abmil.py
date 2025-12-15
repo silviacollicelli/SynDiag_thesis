@@ -29,7 +29,10 @@ defaults={
     "fold": 0, 
     "att_dim": 256,
     "att_act": "relu",
-    "early_stop": False
+    "early_stop": False,
+    "pat_scheduler": 10,
+    "factor_scheduler": 0.7,
+    "min_lr": 1e-6
 }
 
 wandb.login()
@@ -65,9 +68,9 @@ criterion = nn.BCEWithLogitsLoss()
 model = ABMIL(in_shape, config.att_dim, att_act=config.att_act, criterion=criterion)
 model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
-scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, mode='min', patience=config.pat_scheduler, factor=config.factor_scheduler, min_lr=config.min_lr
-)
+#scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+#    optimizer, mode='min', patience=config.pat_scheduler, factor=config.factor_scheduler, min_lr=config.min_lr
+#)
 
 for epoch in range(config.epochs):
     # TRAINING LOOP       
@@ -75,15 +78,14 @@ for epoch in range(config.epochs):
 
     # VALIDATION LOOP
     val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    scheduler.step(val_loss)
-    #print(epoch, scheduler.get_last_lr())
+    #scheduler.step(val_loss)
     #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,
         "train_loss": train_loss,
         "val_accuracy": val_acc,
-        "train_accuracy": train_acc},
+        "additional metrics/train_accuracy": train_acc},
         step=epoch
         )
 

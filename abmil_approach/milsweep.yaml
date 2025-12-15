@@ -5,7 +5,6 @@ metric:
  name: val_loss
  goal: minimize
 
-#tot of sweep configurations: 480
 parameters: 
 
  fold:
@@ -14,26 +13,26 @@ parameters:
  numb_frames:
   values: [8, 16, 32, 64, 128]
   
- l_rate:
-  values: [1e-3, 1e-4, 1e-5]
-
- batch_size: 
-  values: [32, 64]
-
- epochs: 
-  value: 150
-
- att_dim:
-  values: [64, 128, 256]
-
- att_act: 
-  values: ["tanh", "relu", "gelu"]
-
- pat_scheduler:
-  values: [5, 10, 20]
-
- factor_scheduler:
-  values: [0.5, 0.7]
-
- min_lr:
-  values: [1e-5, 1e-6, 1e-7]
+# l_rate:
+#  values: [1e-3, 1e-4, 1e-5]
+#
+# batch_size: 
+#  values: [32, 64]
+#
+# epochs: 
+#  value: 150
+#
+# att_dim:
+#  values: [64, 128, 256]
+#
+# att_act: 
+#  values: ["tanh", "relu", "gelu"]
+#
+# pat_scheduler:
+#  values: [5, 10, 20]
+#
+# factor_scheduler:
+#  values: [0.5, 0.7]
+#
+# min_lr:
+#  values: [1e-5, 1e-6, 1e-7]

@@ -62,9 +62,9 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
         f1 = f1_score(Y_true, Y_pred)
         wandb.log({
             "f1_score": f1,
-            "precision": precision,
-            "recall": recall,
-            "specificity": specificity,
+            "additional metrics/precision": precision,
+            "additional metrics/recall": recall,
+            "additional metrics/specificity": specificity,
             #"conf_mat": wandb.plot.confusion_matrix(
             #        preds=Y_pred,
             #        y_true=Y_true,
@@ -75,7 +75,7 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
             #        Y_true, 
             #        all_probs
             #    ),
-            "AUC": auc 
+            "additional metrics/AUC": auc 
             },
             step=epoch
         )
