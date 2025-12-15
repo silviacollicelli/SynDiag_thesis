@@ -21,7 +21,22 @@ labels_path = base_cfg["data"]["labels_path"]
 k_folds = base_cfg["k_folds"]
 seed = base_cfg['seed']
 
-dataset = BinaryClassificationDataset(features_path, labels_path, bag_keys=["X", "Y"], verbose=False, load_at_init=False)
+defaults={
+    "l_rate": 1e-4,
+    "batch_size": 2,
+    "numb_frames": 32,
+    "epochs": 5,
+    "fold": 0, 
+    "att_dim": 256,
+    "att_act": "relu",
+    "early_stop": False
+}
+
+wandb.login()
+wandb.init(config=defaults)
+config = wandb.config
+
+dataset = BinaryClassificationDataset(features_path+f"{config.numb_frames}", labels_path, bag_keys=["X", "Y"], verbose=False, load_at_init=False)
 print("MIL dataset created")
 
 cv = StratifiedKFold(k_folds, shuffle=True)
@@ -37,21 +52,6 @@ val_data = []
 for _, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(bag_labels)), bag_labels)):
     train_data.append(Subset(dataset, train_idx))
     val_data.append(Subset(dataset, val_idx))
-
-
-defaults={
-    "l_rate": 1e-4,
-    "batch_size": 2,
-    "epochs": 5,
-    "fold": 0, 
-    "att_dim": 128,
-    "att_act": "tanh",
-    "early_stop": False
-}
-
-wandb.login()
-wandb.init(config=defaults)
-config = wandb.config
 
 train_dataloader = DataLoader(
     train_data[config.fold], batch_size=config.batch_size, shuffle=True, collate_fn=collate_fn

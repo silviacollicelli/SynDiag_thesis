@@ -106,20 +106,6 @@ class ImageBagDataset(Dataset):
 
         return instances, bag_name, bag_label
 
-#data = ImageBagDataset("/home/silvia.collicelli/data/Dataset","/home/silvia.collicelli/data/controlled_dataset_metadata.parquet", transform)
-with open("milconfig.yaml", "r") as file:
-    base_cfg = yaml.safe_load(file)
-root_dir = base_cfg["data"]["root_dir"]
-annotations_file = base_cfg["data"]["annotations_file"]
-features_path = base_cfg["data"]["features_path"]
-labels_path = base_cfg["data"]["labels_path"]
-
-inst_bag_loader = DataLoader(
-    ImageBagDataset(root_dir, annotations_file, transform, with_frames=True),
-    batch_size=1,
-    shuffle=False
-)
-
 class DenseNet121Extractor(nn.Module):
     def __init__(self):
         super().__init__()
@@ -134,7 +120,7 @@ class DenseNet121Extractor(nn.Module):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 extractor = DenseNet121Extractor().to(device).eval()
 
-def save_bag_features(images_tensor, bag_id, out_feat_dir, out_labels_dir):
+def save_bag_features(images_tensor, bag_id, bag_label, out_feat_dir, out_labels_dir):
     os.makedirs(out_feat_dir, exist_ok=True)
     os.makedirs(out_labels_dir, exist_ok=True)
 
@@ -150,7 +136,22 @@ def save_bag_features(images_tensor, bag_id, out_feat_dir, out_labels_dir):
 
     print(f"Saved: {path}   shape={feats_np.shape}")
 
+#data = ImageBagDataset("/home/silvia.collicelli/data/Dataset","/home/silvia.collicelli/data/controlled_dataset_metadata.parquet", transform)
+with open("milconfig.yaml", "r") as file:
+    base_cfg = yaml.safe_load(file)
+root_dir = base_cfg["data"]["root_dir"]
+annotations_file = base_cfg["data"]["annotations_file"]
+features_path = base_cfg["data"]["features_path"]
+labels_path = base_cfg["data"]["labels_path"]
+numb_frames = [8, 16, 32, 64, 128]
 
-for bag_id, (bag_images, bag_name, bag_label) in enumerate(inst_bag_loader):
-    bag_images = bag_images.squeeze(0)
-    save_bag_features(bag_images, bag_name, features_path, labels_path)
+for n in numb_frames:
+    inst_bag_loader = DataLoader(
+        ImageBagDataset(root_dir, annotations_file, transform, with_frames=True, numb_frames=n),
+        batch_size=1,
+        shuffle=False
+    )
+    features_path_n = features_path+f"{n}"
+    for bag_id, (bag_images, bag_name, bag_label) in enumerate(inst_bag_loader):
+        bag_images = bag_images.squeeze(0)
+        save_bag_features(bag_images, bag_name, bag_label, features_path_n, labels_path)
