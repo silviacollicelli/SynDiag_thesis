@@ -66,16 +66,17 @@ model = ABMIL(in_shape, config.att_dim, att_act=config.att_act, criterion=criter
 model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-    optimizer, mode='min', patience=2, factor=0.5
+    optimizer, mode='min', patience=config.pat_scheduler, factor=config.factor_scheduler, min_lr=config.min_lr
 )
 
-for epoch in tqdm.tqdm(range(config.epochs)):
+for epoch in range(config.epochs):
     # TRAINING LOOP       
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
 
     # VALIDATION LOOP
     val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
     scheduler.step(val_loss)
+    #print(epoch, scheduler.get_last_lr())
     #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({

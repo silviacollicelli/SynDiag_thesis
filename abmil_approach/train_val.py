@@ -61,10 +61,10 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
         auc = roc_auc_score(Y_true, pos_probs)
         f1 = f1_score(Y_true, Y_pred)
         wandb.log({
+            "f1_score": f1,
             "precision": precision,
             "recall": recall,
             "specificity": specificity,
-            "f1_score": f1,
             #"conf_mat": wandb.plot.confusion_matrix(
             #        preds=Y_pred,
             #        y_true=Y_true,
