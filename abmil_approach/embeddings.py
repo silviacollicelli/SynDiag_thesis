@@ -12,7 +12,7 @@ import pandas as pd
 
 transform = T.Compose([
     T.Resize((256, 256)),
-    T.RandomResizedCrop(224),
+    T.CenterCrop(224),
     T.ToTensor(),
     T.Normalize(mean=[0.485, 0.456, 0.406], 
         std=[0.229, 0.224, 0.225]),
@@ -120,7 +120,7 @@ class DenseNet121Extractor(nn.Module):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 extractor = DenseNet121Extractor().to(device).eval()
 
-def save_bag_features(images_tensor, bag_id, bag_label, out_feat_dir, out_labels_dir):
+def save_bag_features(images_tensor, bag_id, bag_label, extractor, out_feat_dir, out_labels_dir):
     os.makedirs(out_feat_dir, exist_ok=True)
     os.makedirs(out_labels_dir, exist_ok=True)
 
@@ -136,7 +136,6 @@ def save_bag_features(images_tensor, bag_id, bag_label, out_feat_dir, out_labels
 
     print(f"Saved: {path}   shape={feats_np.shape}")
 
-#data = ImageBagDataset("/home/silvia.collicelli/data/Dataset","/home/silvia.collicelli/data/controlled_dataset_metadata.parquet", transform)
 with open("milconfig.yaml", "r") as file:
     base_cfg = yaml.safe_load(file)
 root_dir = base_cfg["data"]["root_dir"]
@@ -154,4 +153,4 @@ for n in numb_frames:
     features_path_n = features_path+f"{n}"
     for bag_id, (bag_images, bag_name, bag_label) in enumerate(inst_bag_loader):
         bag_images = bag_images.squeeze(0)
-        save_bag_features(bag_images, bag_name, bag_label, features_path_n, labels_path)
+        save_bag_features(bag_images, bag_name, bag_label, extractor, features_path_n, labels_path)

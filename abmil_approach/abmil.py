@@ -6,7 +6,6 @@ from torchmil.data import collate_fn
 from train_val import train, val
 import torch.nn as nn
 import numpy as np
-import tqdm
 import random
 import wandb
 import torch
@@ -25,7 +24,7 @@ defaults={
     "l_rate": 1e-4,
     "batch_size": 2,
     "numb_frames": 32,
-    "epochs": 5,
+    "epochs": 100,
     "fold": 0, 
     "att_dim": 256,
     "att_act": "relu",
@@ -85,7 +84,7 @@ for epoch in range(config.epochs):
         "val_loss": val_loss,
         "train_loss": train_loss,
         "val_accuracy": val_acc,
-        "additional metrics/train_accuracy": train_acc},
+        "Additional metrics/train_accuracy": train_acc},
         step=epoch
         )
 
