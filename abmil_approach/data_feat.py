@@ -44,16 +44,16 @@ class ImageBagDataset(Dataset):
                  root_dir: str,
                  annotations_file: str,
                  transform,
-                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
-                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
+                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 #holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
                  with_frames: bool = True, 
                  numb_frames: int = 16, 
                  ) -> None:
         self.root_dir = root_dir
         self.bags = []
         clinical_table = pd.read_parquet(annotations_file)
-        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
 
@@ -156,3 +156,51 @@ class End2EndABMIL(nn.Module):
         feats = feats.view(B, N, -1)
 
         return self.mil(feats, mask)
+    
+def set_frozen_modules_to_eval(model: nn.Module):
+    for name, module in model.named_modules():
+        # Skip the top-level module itself
+        if module is model:
+            continue
+
+        params = list(module.parameters(recurse=False))
+        if not params:
+            continue
+
+        # Check if all parameters in this module are frozen
+        if isinstance(module, nn.BatchNorm2d):
+            module.eval()
+        if all(not p.requires_grad for p in params):
+            module.eval()
+
+def build_model(train_last_block,
+                lrate_mil,
+                device):
+                
+    model = End2EndABMIL(train_last_block)
+    set_frozen_modules_to_eval(model)
+    model.to(device)
+
+    params_to_optimize = []
+
+    params_to_optimize.append({
+        'params': model.mil.parameters(),
+        'lr': lrate_mil
+    })
+
+    if train_last_block:
+        backbone_params = []
+        for p in model.backbone.parameters():
+            if p.requires_grad:
+                backbone_params.append(p)
+        params_to_optimize.append({
+            'params': backbone_params,
+            'lr': lrate_mil*0.1
+        })
+
+    optimizer = torch.optim.Adam(params_to_optimize)
+    criterion = nn.BCEWithLogitsLoss()
+
+    return model, optimizer, criterion
+
+    
