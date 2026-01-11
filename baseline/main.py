@@ -27,6 +27,10 @@ wandb.login()
 wandb.init(config=defaults)
 config = wandb.config
 
+torch.manual_seed(base_cfg['seed'])
+random.seed(base_cfg['seed'])
+np.random.seed(base_cfg['seed'])
+
 base_dataset = MyDataset(
     base_cfg['data']['clinical_path'],
     base_cfg['data']['folder_path'], 
@@ -40,10 +44,6 @@ cases = [s[2] for s in base_dataset.samples]
 
 cases = np.array(cases)
 labels = np.array(labels)
-
-torch.manual_seed(base_cfg['seed'])
-random.seed(base_cfg['seed'])
-np.random.seed(base_cfg['seed'])
 
 cv = StratifiedGroupKFold(base_cfg["k_folds"], shuffle=True)
 

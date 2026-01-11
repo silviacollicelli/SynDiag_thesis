@@ -23,30 +23,27 @@ seed = base_cfg['seed']
 defaults={
     "l_rate": 1e-4,
     "batch_size": 2,
-    "numb_frames": 32,
-    "epochs": 100,
+    "numb_frames": 16,
+    "epochs": 10,
     "fold": 0, 
     "att_dim": 256,
     "att_act": "relu",
-    "early_stop": False,
-    "pat_scheduler": 10,
-    "factor_scheduler": 0.7,
-    "min_lr": 1e-6
+    "early_stop": False
 }
 
 wandb.login()
 wandb.init(config=defaults)
 config = wandb.config
 
-dataset = BinaryClassificationDataset(features_path+f"{config.numb_frames}", labels_path, bag_keys=["X", "Y"], verbose=False, load_at_init=False)
-print("MIL dataset created")
-
-cv = StratifiedKFold(k_folds, shuffle=True)
-bag_labels = [dataset[i]["Y"].item() for i in range(len(dataset))]
-
 torch.manual_seed(seed)
 random.seed(seed)
 np.random.seed(seed)
+
+dataset = BinaryClassificationDataset(features_path+f"{config.numb_frames}", labels_path, bag_keys=["X", "Y"], verbose=False, load_at_init=False)
+#print("MIL dataset created")
+
+cv = StratifiedKFold(k_folds, shuffle=True)
+bag_labels = [dataset[i]["Y"].item() for i in range(len(dataset))]
 
 train_data = []
 val_data = []
@@ -61,7 +58,6 @@ train_dataloader = DataLoader(
 val_dataloader = DataLoader(
     val_data[config.fold], batch_size=config.batch_size, shuffle=False, collate_fn=collate_fn
 )
-
 in_shape = (dataset[0]["X"].shape[-1],)
 criterion = nn.BCEWithLogitsLoss()
 model = ABMIL(in_shape, config.att_dim, att_act=config.att_act, criterion=criterion)
@@ -78,7 +74,7 @@ for epoch in range(config.epochs):
     # VALIDATION LOOP
     val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
     #scheduler.step(val_loss)
-    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,

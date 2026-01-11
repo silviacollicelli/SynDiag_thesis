@@ -1,12 +1,12 @@
 data:
- features_path: "/home/silvia.collicelli/project/embeddings/features"
- labels_path: "/home/silvia.collicelli/project/embeddings/labels"
- root_dir: "/home/silvia.collicelli/data/Dataset"
- annotations_file: "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"
- #features_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\features"
- #labels_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\labels"
- #root_dir: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\Dataset"
- #annotations_file: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\clinical_case_metadata.parquet"
+ #features_path: "/home/silvia.collicelli/project/embeddings/features"
+ #labels_path: "/home/silvia.collicelli/project/embeddings/labels"
+ #root_dir: "/home/silvia.collicelli/data/Dataset"
+ #annotations_file: "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"
+ features_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\features"
+ labels_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\labels"
+ root_dir: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\Dataset"
+ annotations_file: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\clinical_case_metadata.parquet"
 
 
 k_folds: 5

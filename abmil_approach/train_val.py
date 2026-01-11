@@ -5,9 +5,27 @@ import torch.nn as nn
 from torchmetrics.classification import BinaryF1Score
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
 
+import torch.nn as nn
+
+def set_frozen_modules_to_eval(model: nn.Module):
+    for name, module in model.named_modules():
+        # Skip the top-level module itself
+        if module is model:
+            continue
+
+        params = list(module.parameters(recurse=False))
+        if not params:
+            continue
+
+        # Check if all parameters in this module are frozen
+        if isinstance(module, nn.BatchNorm2d):
+            module.eval()
+        if all(not p.requires_grad for p in params):
+            module.eval()
+
 def train(model, device, criterion, optimizer, dataloader):
     model.train()
-
+    set_frozen_modules_to_eval(model)
     sum_loss = 0.0
     sum_correct = 0.0
     for batch in dataloader:

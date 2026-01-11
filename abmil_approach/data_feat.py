@@ -9,7 +9,7 @@ import torchvision.transforms as T
 from PIL import Image
 import torch.nn as nn
 import pandas as pd
-import random
+from torchmil.models import ABMIL
 
 transform = T.Compose([
     T.Resize((256, 256)),
@@ -18,12 +18,6 @@ transform = T.Compose([
     T.Normalize(mean=[0.485, 0.456, 0.406], 
         std=[0.229, 0.224, 0.225]),
 ])
-
-seed=0
-torch.manual_seed(seed)
-random.seed(seed)
-np.random.seed(seed)
-
 def video_to_frames(video_path, num_frames):
     cap = cv2.VideoCapture(video_path)
 
@@ -44,6 +38,7 @@ def video_to_frames(video_path, num_frames):
     cap.release()
     return frames
 
+
 class ImageBagDataset(Dataset):
     def __init__(self, 
                  root_dir: str,
@@ -51,7 +46,7 @@ class ImageBagDataset(Dataset):
                  transform,
                  #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
                  holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
-                 with_frames: bool = False, 
+                 with_frames: bool = True, 
                  numb_frames: int = 16, 
                  ) -> None:
         self.root_dir = root_dir
@@ -111,53 +106,53 @@ class ImageBagDataset(Dataset):
         instances = torch.stack(instances)  # (bag_size, 3, 224, 224)
         bag_label = self.labels_dict[self.histo_dict[bag_name]]
 
-        return instances, bag_name, bag_label
+        return {
+            'X': instances, 
+            'Y': torch.tensor(bag_label, dtype=torch.long)
+        }
 
-class DenseNet121Extractor(nn.Module):
-    def __init__(self):
+class DenseNet121Backbone(nn.Module):
+    def __init__(self, train_last_block=True):
         super().__init__()
         self.model = models.densenet121(
             weights=models.DenseNet121_Weights.DEFAULT
         )
-        self.model.classifier = nn.Identity()  # returns 1024-dim vector
+        feat_dim = self.model.classifier.in_features
+        self.in_dim_att = (feat_dim,)
+        self.model.classifier = nn.Identity()
+        for param in self.model.parameters():
+            param.requires_grad = False
+
+        # Unfreeze denseblock4 if requested
+        if train_last_block:
+            for param in self.model.features.denseblock4.parameters():
+                param.requires_grad = True
 
     def forward(self, x):
-        return self.model(x)
-    
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-extractor = DenseNet121Extractor().to(device).eval()
+        return self.model(x)  # (N, 1024)
 
-def save_bag_features(images_tensor, bag_id, bag_label, extractor, out_feat_dir, out_labels_dir):
-    os.makedirs(out_feat_dir, exist_ok=True)
-    os.makedirs(out_labels_dir, exist_ok=True)
+class End2EndABMIL(nn.Module):
+    def __init__(self, train_last_block):
+        super().__init__()
 
-    with torch.no_grad():
-        feats = extractor(images_tensor.to(device))   # (bag_size, 1024)
+        self.backbone = DenseNet121Backbone(train_last_block)
+        self.train_last_block = train_last_block
 
-    feats_np = feats.cpu().numpy()               # convert to numpy
+        self.mil = ABMIL(
+            in_shape=self.backbone.in_dim_att,
+            att_dim=256,
+            att_act="relu"
+        )
 
-    path = os.path.join(out_feat_dir, f"{bag_id[0]}.npy")
-    lab_path = os.path.join(out_labels_dir, f"{bag_id[0]}.npy")
-    np.save(path, feats_np)
-    np.save(lab_path, bag_label.numpy())
+    def forward(self, X, mask):
+        B, N = X.shape[:2]
+        X = X.view(B * N, *X.shape[2:])
+        if not self.train_last_block:
+            with torch.no_grad():
+                feats = self.backbone(X)
+        else:
+            feats = self.backbone(X)
+            
+        feats = feats.view(B, N, -1)
 
-    print(f"Saved: {path}   shape={feats_np.shape}")
-
-with open("milconfig.yaml", "r") as file:
-    base_cfg = yaml.safe_load(file)
-root_dir = base_cfg["data"]["root_dir"]
-annotations_file = base_cfg["data"]["annotations_file"]
-features_path = base_cfg["data"]["features_path"]
-labels_path = base_cfg["data"]["labels_path"]
-numb_frames = [8, 16, 32, 64, 128]
-
-for n in numb_frames:
-    inst_bag_loader = DataLoader(
-        ImageBagDataset(root_dir, annotations_file, transform, with_frames=True, numb_frames=n),
-        batch_size=1,
-        shuffle=False
-    )
-    features_path_n = features_path+f"{n}"
-    for bag_id, (bag_images, bag_name, bag_label) in enumerate(inst_bag_loader):
-        bag_images = bag_images.squeeze(0)
-        save_bag_features(bag_images, bag_name, bag_label, extractor, features_path_n, labels_path)
+        return self.mil(feats, mask)
