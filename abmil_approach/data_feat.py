@@ -178,7 +178,7 @@ def build_model(train_last_block,
                 device):
                 
     model = End2EndABMIL(train_last_block)
-    set_frozen_modules_to_eval(model)
+    #set_frozen_modules_to_eval(model)
     model.to(device)
 
     params_to_optimize = []

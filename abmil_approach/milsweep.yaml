@@ -1,18 +1,20 @@
-program: abmil.py
-project: ABMIL_sweep_frames
+program: online_abmil.py
+project: ABMIL_online
 method: grid
 metric:
  name: val_loss
  goal: minimize
 
 parameters: 
+ train_featex:
+  values: [False, True]
 
  fold:
   values: [0, 1, 2, 3, 4]
   
- numb_frames:
-  values: [8, 16, 32, 64, 128]
-  
+# numb_frames:
+#  values: [8, 16, 32, 64, 128]
+#  
 # l_rate:
 #  values: [1e-3, 1e-4, 1e-5]
 #

@@ -3,12 +3,14 @@ import wandb
 import numpy as np
 import torch.nn as nn
 from torchmetrics.classification import BinaryF1Score
+from data_feat import set_frozen_modules_to_eval
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
 
 import torch.nn as nn
 
 def train(model, device, criterion, optimizer, dataloader):
     model.train()
+    set_frozen_modules_to_eval(model)
     sum_loss = 0.0
     sum_correct = 0.0
     for batch in dataloader:
