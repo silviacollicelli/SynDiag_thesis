@@ -40,7 +40,6 @@ random.seed(seed)
 np.random.seed(seed)
 
 dataset = BinaryClassificationDataset(features_path+f"{config.numb_frames}", labels_path, bag_keys=["X", "Y"], verbose=False, load_at_init=False)
-#print("MIL dataset created")
 
 cv = StratifiedKFold(k_folds, shuffle=True)
 bag_labels = [dataset[i]["Y"].item() for i in range(len(dataset))]
@@ -58,22 +57,16 @@ train_dataloader = DataLoader(
 val_dataloader = DataLoader(
     val_data[config.fold], batch_size=config.batch_size, shuffle=False, collate_fn=collate_fn
 )
+
 in_shape = (dataset[0]["X"].shape[-1],)
 criterion = nn.BCEWithLogitsLoss()
 model = ABMIL(in_shape, config.att_dim, att_act=config.att_act, criterion=criterion)
 model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
-#scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-#    optimizer, mode='min', patience=config.pat_scheduler, factor=config.factor_scheduler, min_lr=config.min_lr
-#)
 
-for epoch in range(config.epochs):
-    # TRAINING LOOP       
+for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
-
-    # VALIDATION LOOP
     val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    #scheduler.step(val_loss)
     print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({

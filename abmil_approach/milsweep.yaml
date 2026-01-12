@@ -6,7 +6,7 @@ metric:
  goal: minimize
 
 parameters: 
- train_featex:
+ train_feat_ex:
   values: [False, True]
 
  fold:
