@@ -5,7 +5,6 @@ import random
 import torch.nn as nn
 import numpy as np
 from PIL import Image
-import imageio as iio
 import pandas as pd
 from torchvision import models
 from torch.utils.data import Dataset, DataLoader, Sampler
@@ -16,16 +15,6 @@ from torchmil.data.collate import pad_tensors
 from typing import Literal, Optional, Callable
 import torchvision.transforms as T
 from tensordict import TensorDict
-
-#@lru_cache(maxsize=None)
-#def read_images(image_tuple):
-#    """Cache image reading. Takes tuple of image paths/bytes."""
-#    return torch.stack([torch.from_numpy(iio.imread(img_src)) for img_src in image_tuple])
-#
-#def read_embeddings(embedding_tuple):  
-#
-#    """Cache embedding reading. Takes tuple of embeddings."""
-#    return torch.stack([torch.from_numpy(np.array(emb)) for emb in embedding_tuple])
 
 
 def video_to_frames(video_path, num_frames):
@@ -183,144 +172,6 @@ def make_generator(base_seed, offset=0):
     g.manual_seed(base_seed + offset)
     return g
     
-#class MILDatasetOnline(Dataset):
-    """
-    Multiple Instance Learning Dataset for frame-based data.
-    Groups frames by item to create bags.
-    """
-
-    def __init__(
-        self,
-        root_dir: str,
-        annotations_file: str,
-        df: pd.DataFrame,
-        data_col:Literal["image", "embeddings"],
-        label_col:Literal["risk_class"],
-        bag_group: Literal["item", "clinical_case"] = "item",
-        transform: Optional[Callable] = None,
-        normalization: Optional[Callable] = None
-    ):
-        """
-        Args:
-            df: DataFrame with columns ['clinical_case', 'item', 'frame', 'embeddings', 'risk_class']
-            embedding_col: Name of the column containing embeddings
-            label_col: Name of the column containing bag labels
-        """
-        self.df = df.copy()
-        self.data_col = data_col
-        self.label_col = label_col
-        self.bag_names = []
-        self.transform = transform
-        self.normalization = normalization
-        self.is_image_data = (data_col == "image")
-        self.to_tensor_transform = v2.Lambda(lambda t: t.permute(0, 3, 1, 2))
-
-        if bag_group == "item":
-            group_cols = ["clinical_case", "item"]
-        elif bag_group == "clinical_case":
-            group_cols = ["clinical_case"]
-        else:
-            raise Exception(f"Bag Group not supported {bag_group}")
-
-        # Group by item to create bags
-        self.bags = []
-
-        for bag_id, group in self.df.groupby(group_cols):
-            sample_ids = (
-                group[["clinical_case", "item", "frame"]]
-                .astype(str)
-                .agg("/".join, axis=1)
-                .to_list()
-            )
-
-            # Get bag label (should be same for all frames in the item)
-            bag_label = group[label_col].iloc[0]
-
-            self.bag_names.append(str(bag_id))
-
-            # Store indices instead of loading data immediately
-            # This allows lazy loading in __getitem__
-            bag_indices = group.index.tolist()
-
-            self.bags.append(
-                {
-                    "sample_id": sample_ids,
-                    "indices": bag_indices,  # Store DataFrame indices for lazy loading
-                    "num_frames": len(group),
-                    "Y": bag_label,
-                }
-            )
-
-    def __len__(self):
-        return len(self.bags)
-
-    def __getitem__(self, idx):
-        bag = self.bags[idx]
-        bag_indices = bag["indices"]
-        
-        # Get data as hashable tuple for caching
-        data_tuple = tuple(self.df.loc[bag_indices, self.data_col].values)
-        
-        if self.is_image_data:
-            # Cached image reading
-            X = read_images(data_tuple)
-            X = self.to_tensor_transform(X)
-            
-            # Apply transforms (not cached)
-            if self.transform is not None:
-                X = self.transform(X)
-
-            if self.normalization:
-                X = self.normalization(X)
-                # X = torch.stack([self.normalization(img) for img in X])
-
-        else:
-            # Cached embedding reading
-            X = read_embeddings(data_tuple)
-
-        return TensorDict({
-            "sample_id": bag["sample_id"],
-            "X": X,
-            "num_frames": bag["num_frames"],
-            "Y": bag["Y"],
-            "bag_idx": idx,
-        })
-    
-
-    def get_bag_names(self) -> list:
-        """
-        Returns:
-            List of bag names.
-        """
-        return self.bag_names
-
-    def get_bag_name_from_idx(self, bag_idx: int | torch.Tensor) -> str:
-        """
-        Get the bag name (string) given its numeric index.
-
-        Arguments:
-            bag_idx: Integer index or scalar tensor with the bag index.
-
-        Returns:
-            bag_name: Corresponding bag name from `self.bag_names`.
-        """
-        if isinstance(bag_idx, torch.Tensor):
-            bag_idx = int(bag_idx.item())
-        return self.bag_names[bag_idx]
-
-    def decode_bag_names(self, bag_idx_batch: torch.Tensor) -> list[str]:
-        """
-        Decode a batch of bag indices into their corresponding bag names.
-
-        Arguments:
-            bag_idx_batch: 1D tensor of shape (batch_size,) with bag indices.
-
-        Returns:
-            List of bag names of length batch_size.
-        """
-        return [self.bag_names[int(i)] for i in bag_idx_batch.cpu().tolist()]
-
-
 def make_deterministic_dataloader(
     dataset: Dataset,
     batch_size: int,
@@ -410,49 +261,76 @@ def extract_features_batched(
         List of feature tensors, one per original bag
         Each tensor has shape (num_images_i, feature_dim)
     """
-    if train_backbone:
-        for param in feature_extractor.features.denseblock4.parameters():
-            param.requires_grad = True
-        feature_extractor.features.denseblock4.train()
-        grad_ctx = torch.enable_grad()
-    else:
-        feature_extractor.eval()
-        grad_ctx = torch.no_grad()
+    feature_extractor.eval()  # always eval for BN/Dropout stability
+
     batch_size = data.shape[0]
-    masks = masks.to(device=device)
-    data = data.to(device=device)
+    masks = masks.to(device)
+    data = data.to(device)
     batch_features = []
-    with grad_ctx:
-        for batch_idx in range(batch_size):
-            # Get the mask for this batch item
-            batch_mask = masks[batch_idx]  # Shape: (128,)
-            
-            # Select only images where mask is 1
-            selected_images = data[batch_idx][batch_mask == 1]  # Shape: (num_selected, 3, 224, 224)
 
-            bag_size = selected_images.shape[0]
-            bag_features = []
-            # Process images in batches
-            for start_idx in range(0, bag_size, mini_batch_size):
-                end_idx = min(start_idx + batch_size, bag_size)
-                mini_batch_images = selected_images[start_idx:end_idx]
-                mini_batch_features = feature_extractor(mini_batch_images)
-                bag_features.append(mini_batch_features)
+    for batch_idx in range(batch_size):
+        batch_mask = masks[batch_idx]
+        selected_images = data[batch_idx][batch_mask == 1]
 
-            batch_features.append(torch.cat(bag_features, dim=0))
+        bag_size = selected_images.shape[0]
+        bag_features = []
+
+        for start_idx in range(0, bag_size, mini_batch_size):
+            end_idx = min(start_idx + mini_batch_size, bag_size)
+            mini_batch_images = selected_images[start_idx:end_idx]
+
+            mini_batch_features = feature_extractor(mini_batch_images)
+            bag_features.append(mini_batch_features)
+
+        batch_features.append(torch.cat(bag_features, dim=0))
 
     return pad_tensors(batch_features)
 
 class DenseNet121Extractor(nn.Module):
-    def __init__(self):
+    def __init__(self, train_backbone=False):
         super().__init__()
         self.model = models.densenet121(
             weights=models.DenseNet121_Weights.DEFAULT
         )
-        self.model.classifier = nn.Identity()  # returns 1024-dim vector
+        self.model.classifier = nn.Identity()  # 1024-dim output
+        self.train_backbone = train_backbone
+
+        # Freeze everything
+        for p in self.model.parameters():
+            p.requires_grad = False
+
+        if train_backbone:
+            # Unfreeze only last dense block
+            for p in self.model.features.denseblock4.parameters():
+                p.requires_grad = True
 
     def forward(self, x):
-        return self.model(x)
+        if not self.train_backbone:
+            # Fully frozen
+            with torch.no_grad():
+                return self.model(x)
+
+        # Partial fine-tuning: only denseblock4 trains
+        with torch.no_grad():
+            x = self.model.features.conv0(x)
+            x = self.model.features.norm0(x)
+            x = self.model.features.relu0(x)
+            x = self.model.features.pool0(x)
+
+            x = self.model.features.denseblock1(x)
+            x = self.model.features.transition1(x)
+            x = self.model.features.denseblock2(x)
+            x = self.model.features.transition2(x)
+            x = self.model.features.denseblock3(x)
+            x = self.model.features.transition3(x)
+
+        # Gradients only here
+        x = self.model.features.denseblock4(x)
+        x = self.model.features.norm5(x)
+        x = torch.relu(x)
+        x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
+        x = torch.flatten(x, 1)
+        return x
     
 class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable feature extractor
 
@@ -518,7 +396,7 @@ class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable featur
                 masks=mask,
                 feature_extractor=self.feat_ext,
                 device=self.device,
-                mini_batch_size=16,
+                mini_batch_size=8,
                 train_backbone=self.train_backbone
             )
 

@@ -1,4 +1,4 @@
-program: online_abmil.py
+program: online_abmil2.py
 project: ABMIL_online
 method: grid
 metric:

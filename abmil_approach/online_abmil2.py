@@ -1,5 +1,5 @@
 import torch
-from abmil_approach.data_feat_ex2 import ImageBagDataset, transform, make_deterministic_dataloader, mil_collate_fn, set_seed, ABMIL, DenseNet121Extractor
+from data_feat_ex2 import ImageBagDataset, transform, make_deterministic_dataloader, mil_collate_fn, set_seed, ABMIL, DenseNet121Extractor
 from torch.utils.data import Subset
 from train_val import train, val
 import random
@@ -15,8 +15,6 @@ def main():
         base_cfg = yaml.safe_load(file)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    features_path = base_cfg['data']['features_path']
-    labels_path = base_cfg['data']['labels_path']
     root_dir = base_cfg['data']['root_dir']
     annotations_file = base_cfg['data']['annotations_file']
     k_folds = base_cfg['k_folds']
@@ -26,7 +24,7 @@ def main():
         "l_rate": 1e-4,
         "batch_size": 64,
         "numb_frames": 16,
-        "epochs": 5,
+        "epochs": 100,
         "fold": 0, 
         "att_dim": 256,
         "att_act": "relu",
@@ -44,7 +42,7 @@ def main():
     bag_labels = [dataset[i]["Y"].item() for i in range(len(dataset))]
     train_data = []
     val_data = []
-
+    print("done dataset")
     for _, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(bag_labels)), bag_labels)):
         train_data.append(Subset(dataset, train_idx))
         val_data.append(Subset(dataset, val_idx))
@@ -74,7 +72,7 @@ def main():
     )
     
     in_shape = dataset[0]['X'][0].size()   #size of one single image (3,224,224)
-    feature_extractor = DenseNet121Extractor().to(device)
+    feature_extractor = DenseNet121Extractor(train_backbone=config.train_feat_ex)
 
     model = ABMIL(
         device=device,
@@ -84,6 +82,8 @@ def main():
         feat_ext=feature_extractor,
         train_backbone=config.train_feat_ex
         )
+    
+    model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
     criterion = nn.BCEWithLogitsLoss()
