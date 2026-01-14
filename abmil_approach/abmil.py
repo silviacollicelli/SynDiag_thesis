@@ -73,7 +73,7 @@ for epoch in range(config.epochs):
         "val_loss": val_loss,
         "train_loss": train_loss,
         "val_accuracy": val_acc,
-        "Additional metrics/train_accuracy": train_acc},
+        "additional metrics/train_accuracy": train_acc},
         step=epoch
         )
 
