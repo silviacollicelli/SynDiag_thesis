@@ -245,8 +245,7 @@ def extract_features_batched(
     masks:torch.Tensor,
     feature_extractor: nn.Module,
     device:str,
-    mini_batch_size: int = 32,
-    train_backbone:bool=False
+    mini_batch_size: int = 32
 ):
     """
     Extract features from a list of variable-length image tensors using batched processing.
@@ -327,9 +326,9 @@ class DenseNet121Extractor(nn.Module):
         # Gradients only here
         x = self.model.features.denseblock4(x)
         x = self.model.features.norm5(x)
-        x = torch.relu(x)
-        x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
-        x = torch.flatten(x, 1)
+        # x = torch.relu(x)
+        # x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
+        # x = torch.flatten(x, 1)
         return x
     
 class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable feature extractor
@@ -342,8 +341,7 @@ class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable featur
         att_act: str = "tanh",
         gated: bool = False,
         feat_ext: Optional[torch.nn.Module] = None,
-        criterion: torch.nn.Module = torch.nn.BCEWithLogitsLoss(),
-        train_backbone:bool =False
+        criterion: torch.nn.Module = torch.nn.BCEWithLogitsLoss()
     ) -> None:
         """
         Arguments:
@@ -357,7 +355,6 @@ class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable featur
         super().__init__()
         self.device=device
         self.criterion = criterion
-        self.train_backbone=train_backbone
 
         self.feat_ext = feat_ext
         if self.feat_ext is None:
@@ -396,8 +393,7 @@ class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable featur
                 masks=mask,
                 feature_extractor=self.feat_ext,
                 device=self.device,
-                mini_batch_size=8,
-                train_backbone=self.train_backbone
+                mini_batch_size=8
             )
 
         out_pool = self.pool(X, mask, return_att)  # (batch_size, feat_dim)

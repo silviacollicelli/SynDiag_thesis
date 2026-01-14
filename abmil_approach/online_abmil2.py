@@ -29,7 +29,7 @@ def main():
         "att_dim": 256,
         "att_act": "relu",
         "early_stop": False,
-        "train_feat_ex": False
+        "train_feat_ex": True
     }
 
     wandb.login()
@@ -79,8 +79,7 @@ def main():
         in_shape=in_shape,
         att_dim=config.att_dim,
         att_act=config.att_act,
-        feat_ext=feature_extractor,
-        train_backbone=config.train_feat_ex
+        feat_ext=feature_extractor
         )
     
     model.to(device)
