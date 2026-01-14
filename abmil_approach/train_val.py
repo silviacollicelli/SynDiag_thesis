@@ -2,15 +2,12 @@ import torch
 import wandb
 import numpy as np
 import torch.nn as nn
-from torchmetrics.classification import BinaryF1Score
-from data_feat import set_frozen_modules_to_eval
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
 
 import torch.nn as nn
 
 def train(model, device, criterion, optimizer, dataloader):
     model.train()
-    set_frozen_modules_to_eval(model)
     sum_loss = 0.0
     sum_correct = 0.0
     for batch in dataloader:
@@ -29,7 +26,7 @@ def train(model, device, criterion, optimizer, dataloader):
 
     return train_loss, train_acc
 
-def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False):
+def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False, additional_tables=False):
     model.eval()
 
     sum_loss = 0.0
@@ -52,7 +49,6 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
     all_probs = [(1-p, p) for p in pos_probs]
     Y_true = torch.cat(Y_true).int().tolist()
     Y_pred = torch.cat(Y_pred).int().tolist()
-    #print(pos_probs, Y_pred, Y_true)
     val_loss = sum_loss / len(dataloader)
     val_acc = accuracy_score(Y_true, Y_pred)
     early_stopping = EarlyStopping(patience, min_delta)
@@ -68,20 +64,25 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
             "additional metrics/precision": precision,
             "additional metrics/recall": recall,
             "additional metrics/specificity": specificity,
-            #"conf_mat": wandb.plot.confusion_matrix(
-            #        preds=Y_pred,
-            #        y_true=Y_true,
-            #        class_names=["benign", "malignant"],
-            #        title="Risk classification Confusion Matrix"
-            #    ),
-            #"roc_curve": wandb.plot.roc_curve(
-            #        Y_true, 
-            #        all_probs
-            #    ),
             "additional metrics/AUC": auc 
             },
             step=epoch
         )
+    if additional_tables:
+        wandb.log({
+            "conf_mat": wandb.plot.confusion_matrix(
+                preds=Y_pred,
+                y_true=Y_true,
+                class_names=["benign", "malignant"],
+                title="Risk classification Confusion Matrix"
+                ),
+            "roc_curve": wandb.plot.roc_curve(
+                Y_true, 
+                all_probs
+                )
+            },
+            step=epoch
+            )
     
     if early_stop:
         early_stopping(val_loss)

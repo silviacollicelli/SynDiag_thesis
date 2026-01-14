@@ -13,6 +13,7 @@ from torchmil.nn import AttentionPool, LazyLinear
 from torchmil.nn.utils import get_feat_dim
 from torchmil.data.collate import pad_tensors
 from typing import Literal, Optional, Callable
+import torch.nn.functional as F
 import torchvision.transforms as T
 from tensordict import TensorDict
 
@@ -50,16 +51,16 @@ class ImageBagDataset(Dataset):
                  root_dir: str,
                  annotations_file: str,
                  transform,
-                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
-                 #holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
+                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
                  with_frames: bool = True, 
                  numb_frames: int = 16, 
                  ) -> None:
         self.root_dir = root_dir
         self.bags = []
         clinical_table = pd.read_parquet(annotations_file)
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
-        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
 
@@ -260,8 +261,6 @@ def extract_features_batched(
         List of feature tensors, one per original bag
         Each tensor has shape (num_images_i, feature_dim)
     """
-    feature_extractor.eval()  # always eval for BN/Dropout stability
-
     batch_size = data.shape[0]
     masks = masks.to(device)
     data = data.to(device)
@@ -302,20 +301,16 @@ class DenseNet121Extractor(nn.Module):
             # Unfreeze only last dense block
             for p in self.model.features.denseblock4.parameters():
                 p.requires_grad = True
+            for p in self.model.features.norm5.parameters():
+                p.requires_grad = True
 
     def forward(self, x):
-        if not self.train_backbone:
-            # Fully frozen
-            with torch.no_grad():
-                return self.model(x)
 
-        # Partial fine-tuning: only denseblock4 trains
         with torch.no_grad():
             x = self.model.features.conv0(x)
             x = self.model.features.norm0(x)
             x = self.model.features.relu0(x)
             x = self.model.features.pool0(x)
-
             x = self.model.features.denseblock1(x)
             x = self.model.features.transition1(x)
             x = self.model.features.denseblock2(x)
@@ -326,9 +321,9 @@ class DenseNet121Extractor(nn.Module):
         # Gradients only here
         x = self.model.features.denseblock4(x)
         x = self.model.features.norm5(x)
-        # x = torch.relu(x)
-        # x = torch.nn.functional.adaptive_avg_pool2d(x, (1, 1))
-        # x = torch.flatten(x, 1)
+        x = F.relu(x, inplace=True)
+        x = F.adaptive_avg_pool2d(x, (1,1))
+        x = torch.flatten(x, 1)
         return x
     
 class ABMIL(MILModel):      #similar to torchmil ABMIL but with trainable feature extractor
