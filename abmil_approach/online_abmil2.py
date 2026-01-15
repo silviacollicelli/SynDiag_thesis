@@ -25,12 +25,12 @@ def main():
         "l_rate": 1e-4,
         "batch_size": 64,
         "numb_frames": 16,
-        "epochs": 5,
+        "epochs": 10,
         "fold": 0, 
         "att_dim": 256,
         "att_act": "relu",
         "early_stop": False,
-        "train_feat_ex": False
+        "train_feat_ex": True
     }
 
     wandb.login()

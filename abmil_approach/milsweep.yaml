@@ -6,8 +6,8 @@ metric:
  goal: minimize
 
 parameters: 
- train_feat_ex:
-  values: [False, True]
+# train_feat_ex:
+#  values: [False, True]
 
  fold:
   values: [0, 1, 2, 3, 4]

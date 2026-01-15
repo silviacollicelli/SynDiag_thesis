@@ -22,13 +22,14 @@ seed = base_cfg['seed']
 
 defaults={
     "l_rate": 1e-4,
-    "batch_size": 2,
+    "batch_size": 64,
     "numb_frames": 16,
-    "epochs": 10,
+    "epochs": 1000,
     "fold": 0, 
     "att_dim": 256,
     "att_act": "relu",
-    "early_stop": False
+    "early_stop": False,
+    "gated": True
 }
 
 wandb.login()
@@ -60,7 +61,7 @@ val_dataloader = DataLoader(
 
 in_shape = (dataset[0]["X"].shape[-1],)
 criterion = nn.BCEWithLogitsLoss()
-model = ABMIL(in_shape, config.att_dim, att_act=config.att_act, criterion=criterion)
+model = ABMIL(in_shape, config.att_dim, att_act=config.att_act, gated=config.gated, criterion=criterion)
 model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 
