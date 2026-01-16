@@ -3,7 +3,7 @@ from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import Subset, DataLoader
 from torchmil.data import collate_fn
-from abmil_approach.train_val import train, val
+from train_val import train, val
 import torch.nn as nn
 import numpy as np
 import random
@@ -11,7 +11,7 @@ import wandb
 import torch
 import yaml
 
-with open("abmil_approach\\milconfig.yaml", "r") as file:
+with open("abmil_approach/milconfig.yaml", "r") as file:
     base_cfg = yaml.safe_load(file)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -78,7 +78,7 @@ optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
     val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,

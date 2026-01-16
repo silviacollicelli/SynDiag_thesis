@@ -1,9 +1,9 @@
-program: dsmil.py
+program: dsmil/dsmil.py
 project: DSMIL_first
 method: grid
 metric:
- name: val_loss
- goal: minimize
+ name: f1_score
+ goal: maximize
 
 parameters: 
 
@@ -20,7 +20,7 @@ parameters:
   values: [32, 64]
 
  epochs: 
-  value: 1000
+  value: 500
 
  att_dim:
   values: [64, 128, 256]
