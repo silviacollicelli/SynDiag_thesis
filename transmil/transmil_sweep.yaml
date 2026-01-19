@@ -1,0 +1,28 @@
+program: transmil/main_trans.py
+project: TRANSMIL_first
+method: grid
+metric:
+ name: f1_score
+ goal: maximize
+
+parameters: 
+ fold:
+  values: [0, 1, 2, 3, 4]
+  
+ l_rate: 
+  valuse: [1e-3, 1e-4, 5e-5, 1e-5] 
+
+ batch_size: 
+  values: [32, 64]
+
+ numb_frames: 
+  values: [8, 16, 32, 64, 128]
+
+ epochs: 400
+
+ att_dim: 256
+ n_layers: 2
+ n_heads": 4
+ n_landmarks": None
+ dropout": 0
+ use_mlp": False
