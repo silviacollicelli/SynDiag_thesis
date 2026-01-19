@@ -1,5 +1,5 @@
 from torchmil.models import TransMIL
-from data_trans import transmil_collate, make_deterministic_dataloader, set_seed
+from data_trans import transmil_collate, make_deterministic_dataloader, set_seed, transmil_collate_bs1
 from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import Subset
@@ -23,7 +23,7 @@ defaults={
     "l_rate": 1e-4,
     "batch_size": 64,
     "numb_frames": 16,
-    "epochs": 10,
+    "epochs": 100,
     "fold": 0, 
     "att_dim": 256,
     "n_layers": 2,
@@ -62,7 +62,7 @@ train_dataloader = make_deterministic_dataloader(
     )
 
 val_dataloader = make_deterministic_dataloader(
-        dataset=train_data[config.fold],
+        dataset=val_data[config.fold],
         batch_size=config.batch_size,
         num_workers=0,
         pin_memory=False,
@@ -83,14 +83,13 @@ model = TransMIL(
     n_landmarks=config.n_landmarks,
     dropout=config.dropout,
     use_mlp=config.use_mlp
-    )
-model.to(device)
+    ).to(device)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 
 for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
     val_loss, val_acc = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,

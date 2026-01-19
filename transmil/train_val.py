@@ -8,15 +8,15 @@ def train(model, device, criterion, optimizer, dataloader):
     sum_loss = 0.0
     sum_correct = 0.0
     for batch in dataloader:
-        batch['X'].to(device)
-        batch['Y'].to(device)
+        X = batch['X'].to(device)
+        Y = batch['Y'].to(device)
         optimizer.zero_grad()
-        out = model(batch["X"])
-        loss = criterion(out, batch["Y"].float())
+        out = model(X)
+        loss = criterion(out, Y.float())
         loss.backward()
         optimizer.step()
         pred = (out > 0).float()
-        sum_correct += (pred == batch["Y"]).sum().item()
+        sum_correct += (pred == Y).sum().item()
         sum_loss += loss.item()
         
     train_loss = sum_loss / len(dataloader)
@@ -33,14 +33,14 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
     pos_probs = []
     with torch.no_grad():
         for batch in dataloader:
-            batch['X'].to(device)
-            batch['Y'].to(device)
-            out = model(batch["X"])
-            loss = criterion(out, batch["Y"].float())
+            X = batch['X'].to(device)
+            Y  = batch['Y'].to(device)
+            out = model(X)
+            loss = criterion(out, Y.float())
             pred = (out > 0).float()
             pos_probs.append(out)
             Y_pred.append(pred)
-            Y_true.append(batch["Y"])
+            Y_true.append(Y)
             sum_loss += loss.item()
 
     sigmoid = nn.Sigmoid()

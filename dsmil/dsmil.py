@@ -1,12 +1,12 @@
 from torchmil.models import DSMIL
 from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
-from torch.utils.data import Subset, DataLoader
+from torch.utils.data import Subset
 from torchmil.data import collate_fn
 from train_val import train, val
+from data import make_deterministic_dataloader, set_seed
 import torch.nn as nn
 import numpy as np
-import random
 import wandb
 import torch
 import yaml
@@ -34,10 +34,7 @@ defaults={
 wandb.login()
 wandb.init(config=defaults)
 config = wandb.config
-
-torch.manual_seed(seed)
-random.seed(seed)
-np.random.seed(seed)
+set_seed(seed)
 
 dataset = BinaryClassificationDataset(features_path+f"{config.numb_frames}", labels_path, bag_keys=["X", "Y"], verbose=False, load_at_init=False)
 
@@ -51,12 +48,30 @@ for _, (train_idx, val_idx) in enumerate(cv.split(np.zeros(len(bag_labels)), bag
     train_data.append(Subset(dataset, train_idx))
     val_data.append(Subset(dataset, val_idx))
 
-train_dataloader = DataLoader(
-    train_data[config.fold], batch_size=config.batch_size, shuffle=True, collate_fn=collate_fn
-)
-val_dataloader = DataLoader(
-    val_data[config.fold], batch_size=config.batch_size, shuffle=False, collate_fn=collate_fn
-)
+train_dataloader = make_deterministic_dataloader(
+        dataset=train_data[config.fold],
+        batch_size=config.batch_size,
+        num_workers=0,
+        pin_memory=False,
+        shuffle=True,
+        offset=0,
+        base_seed=seed,
+        sampler=None,
+        collate_fn=collate_fn,
+    )
+
+val_dataloader = make_deterministic_dataloader(
+        dataset=val_data[config.fold],
+        batch_size=config.batch_size,
+        num_workers=0,
+        pin_memory=False,
+        shuffle=False,
+        offset=0,
+        base_seed=seed,
+        sampler=None,
+        collate_fn=collate_fn,
+    )
+
 
 in_shape = (dataset[0]["X"].shape[-1],)
 criterion = nn.BCEWithLogitsLoss()
@@ -67,9 +82,12 @@ if config.nonlv==1:
 elif config.nonlv==0.0:
     non_lin_v=True
     dropout=0.0
-elif config.nonlv==0.3:
+elif config.nonlv==0.25:
     non_lin_v=True
     dropout=0.3
+elif config.nonlv==0.5:
+    non_lin_v=True
+    dropout=0.5
 
 model = DSMIL(in_shape, config.att_dim, nonlinear_q=config.nonlq, nonlinear_v=non_lin_v, dropout=dropout)
 model.to(device)
