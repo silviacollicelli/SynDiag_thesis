@@ -1,9 +1,8 @@
-from torchmil.models import TransMIL
-from data_trans import transmil_collate, make_deterministic_dataloader, set_seed
+from data_trans import make_deterministic_dataloader, set_seed, mil_collate_fn, TransformerMIL
 from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
 from torch.utils.data import Subset
-from train_val import train, val
+from train_val import train_mask, val_mask
 import torch.nn as nn
 import numpy as np
 import wandb
@@ -23,14 +22,11 @@ defaults={
     "l_rate": 1e-4,
     "batch_size": 64,
     "numb_frames": 16,
-    "epochs": 100,
+    "epochs": 5,
     "fold": 0, 
     "att_dim": 256,
     "n_layers": 2,
-    "n_heads": 4,
-    "n_landmarks": None,
-    "dropout": 0,
-    "use_mlp": False
+    "n_heads": 4
 }
 
 wandb.login()
@@ -58,7 +54,7 @@ train_dataloader = make_deterministic_dataloader(
         offset=0,
         base_seed=seed,
         sampler=None,
-        collate_fn=transmil_collate,
+        collate_fn=mil_collate_fn,
     )
 
 val_dataloader = make_deterministic_dataloader(
@@ -70,26 +66,23 @@ val_dataloader = make_deterministic_dataloader(
         offset=0,
         base_seed=seed,
         sampler=None,
-        collate_fn=transmil_collate,
+        collate_fn=mil_collate_fn,
     )
 
-in_shape = (dataset[0]["X"].shape[-1],)
+in_shape = dataset[0]["X"].shape[-1]
 criterion = nn.BCEWithLogitsLoss()
-model = TransMIL(
-    in_shape=in_shape, 
-    att_dim=config.att_dim, 
-    n_layers=config.n_layers,
+model = TransformerMIL(
+    d_in=in_shape,
+    d_model=config.att_dim, 
     n_heads=config.n_heads,
-    n_landmarks=config.n_landmarks,
-    dropout=config.dropout,
-    use_mlp=config.use_mlp
-    ).to(device)
+    n_layers=config.n_layers
+)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 
 for epoch in range(config.epochs):      
-    train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
-    val_loss, val_acc = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    train_loss, train_acc = train_mask(model, device, criterion, optimizer, train_dataloader)
+    val_loss, val_acc = val_mask(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
+    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,

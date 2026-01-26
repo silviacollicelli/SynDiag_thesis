@@ -1,19 +1,9 @@
-import os
-import cv2
 import numpy as np
 import torch
-import yaml
-from torchvision import models
-from torchmil.data.collate import pad_tensors
 from torch.utils.data import Dataset, DataLoader, Sampler
-import torchvision.transforms as T
-from PIL import Image
 import random
 from typing import Optional, Callable
 import torch.nn as nn
-import pandas as pd
-from tensordict import TensorDict
-from torchmil.models import ABMIL
 
 def set_seed(seed):
     random.seed(seed)  # Set random seed for Python's random module
@@ -99,3 +89,114 @@ def make_deterministic_dataloader(
         sampler=sampler,
         collate_fn=collate_fn,
     )
+
+def mil_collate_fn(batch):
+    """
+    batch: list[TensorDict] OR TensorDict
+    Each element contains:
+      - "X": Tensor(n_i, D)
+      - "Y": Tensor or scalar
+    """
+
+    # Case 1: PyTorch gives a list of TensorDicts
+    if isinstance(batch, list):
+        X_list = [b["X"] for b in batch]
+        Y = torch.stack([b["Y"] for b in batch])
+
+    # Case 2: PyTorch already gives a TensorDict
+    else:
+        X_list = batch["X"]
+        Y = batch["Y"]
+
+    n_instances = [x.shape[0] for x in X_list]
+    N_max = max(n_instances)
+    B = len(X_list)
+    D = X_list[0].shape[1]
+
+    X_padded = torch.zeros(B, N_max, D)
+    mask = torch.zeros(B, N_max, dtype=torch.bool)
+
+    for i, x in enumerate(X_list):
+        n = x.shape[0]
+        X_padded[i, :n] = x
+        mask[i, :n] = True
+
+    return {
+        "X": X_padded,
+        "mask": mask,
+        "Y": Y
+    }
+    return X_padded, mask, torch.tensor(labels)
+
+class TransformerMILEncoder(nn.Module):
+    def __init__(self, d_in, d_model=256, n_heads=4, n_layers=2):
+        super().__init__()
+
+        self.embedding = nn.Linear(d_in, d_model)
+
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_model,
+            nhead=n_heads,
+            batch_first=True
+        )
+
+        self.transformer = nn.TransformerEncoder(
+            encoder_layer,
+            num_layers=n_layers
+        )
+
+    def forward(self, x, mask):
+        """
+        x: (B, N, D)
+        mask: (B, N) — True = real token
+        """
+        h = self.embedding(x)
+
+        # PyTorch expects: True = ignore
+        key_padding_mask = ~mask
+
+        h = self.transformer(
+            h,
+            src_key_padding_mask=key_padding_mask
+        )
+
+        return h
+    
+class MaskedAttentionPooling(nn.Module):
+    def __init__(self, d_model=256):
+        super().__init__()
+        self.attention = nn.Linear(d_model, 1)
+
+    def forward(self, h, mask):
+        """
+        h: (B, N, d)
+        mask: (B, N)
+        """
+        logits = self.attention(h).squeeze(-1)
+        logits[~mask] = float("-inf")
+
+        alpha = torch.softmax(logits, dim=1)
+        z = torch.sum(alpha.unsqueeze(-1) * h, dim=1)
+
+        return z
+
+class TransformerMIL(nn.Module):
+    def __init__(self, d_in, d_model=256, n_heads=4, n_layers=2):
+        super().__init__()
+
+        self.encoder = TransformerMILEncoder(
+            d_in=d_in,
+            d_model=d_model,
+            n_heads=n_heads,
+            n_layers=n_layers
+        )
+
+        self.pooling = MaskedAttentionPooling(d_model)
+        self.classifier = nn.Linear(d_model, 1)
+
+    def forward(self, x, mask):
+        h = self.encoder(x, mask)
+        z = self.pooling(h, mask)
+        y_hat = self.classifier(z)
+        y_hat = y_hat.float().squeeze(1)
+        return y_hat

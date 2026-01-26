@@ -5,6 +5,9 @@ metric:
  name: f1_score
  goal: maximize
 
+#runna questa conf per più epoche
+#non linear v,q e dropout, ma learning rate più piccolo -> vedi se diminuisce la variability
+#poi scegli ultimo sweep e fai ultimo sweep su numb_frames, batch size
 parameters: 
 
  fold:
@@ -23,13 +26,16 @@ parameters:
   #values: [32, 64]
 
  epochs: 
-  value: 500
+  value: 700
 
  att_dim:
-  values: [64, 128, 256]
+  value: 256
+  #values: [64, 128, 256]
 
  nonlq:
-  values: [False, True]
+  value: False
+  #values: [False, True]
   
  nonlv: 
-  values: [1, 0.0, 0.25, 0.5]
+  value: 1
+  #values: [1, 0.0, 0.25, 0.5]
