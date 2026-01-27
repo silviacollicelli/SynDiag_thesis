@@ -13,11 +13,11 @@ parameters:
   values: [0, 1, 2, 3, 4]
   
  l_rate: 
-  value: 1e-5
-  #values: [1e-3, 1e-4, 5e-5, 1e-5] 
+  value: 5e-5
+  #values: [5e-5, 1e-5] 
 
  batch_size: 
-  value: 64
+  value: 32
   #values: [32, 64]
 
  numb_frames: 
@@ -25,24 +25,24 @@ parameters:
   #values: [8, 16, 32, 64, 128]
 
  epochs: 
-  value: 150
+  value: 500
 
  att_dim: 
-  #value: 256
-  values: [128, 256, 512]
+  value: 64
+  #values: [64, 128]
 
  n_layers: 
   value: 2
   #values: [2, 3]
 
  n_heads: 
-  value: 8
+  value: 2
   #values: [4, 8]
 
  dropout:         #oss: dropout viene usato solo se use_mlp=True!!! 
-  value: 0
-  #values: [0.0, 0.1, 0.3]
+  value: 0.5
+  #values: [0.1, 0.3]
 
  use_mlp: 
-  value: False
+  value: True
   #values: [False, True]

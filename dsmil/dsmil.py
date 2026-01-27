@@ -82,9 +82,15 @@ if config.nonlv==1:
 elif config.nonlv==0.0:
     non_lin_v=True
     dropout=0.0
+elif config.nonlv==0.1:
+    non_lin_v=True
+    dropout=0.1
+elif config.nonlv==0.2:
+    non_lin_v=True
+    dropout=0.2
 elif config.nonlv==0.25:
     non_lin_v=True
-    dropout=0.3
+    dropout=0.25
 elif config.nonlv==0.5:
     non_lin_v=True
     dropout=0.5
