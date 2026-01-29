@@ -130,7 +130,7 @@ class ResNet18Extractor(nn.Module):
         self.model = models.resnet18(
             weights=models.ResNet18_Weights.DEFAULT
         )
-        self.model.classifier = nn.Identity()  # returns 512-dim vector
+        self.model.fc = nn.Identity()  # returns 512-dim vector
 
     def forward(self, x):
         return self.model(x)
@@ -160,8 +160,8 @@ root_dir = base_cfg["data"]["root_dir"]
 annotations_file = base_cfg["data"]["annotations_file"]
 features_path = base_cfg["data"]["features_path"]
 labels_path = base_cfg["data"]["labels_path"]
-numb_frames = [8, 16, 32, 64, 128]
-
+#numb_frames = [8, 16, 32, 64, 128]
+numb_frames = [16]
 for n in numb_frames:
     inst_bag_loader = DataLoader(
         ImageBagDataset(root_dir, annotations_file, transform, with_frames=True, numb_frames=n),

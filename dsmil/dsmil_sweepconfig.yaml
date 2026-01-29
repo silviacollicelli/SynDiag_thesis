@@ -1,6 +1,8 @@
 program: dsmil/dsmil.py
 project: DSMIL_sweep
 method: grid
+name: best_with_resnet
+description: sweep with best configuration of DenseNet121 but using ResNet18 as backbone
 metric:
  name: f1_score
  goal: maximize
@@ -18,15 +20,15 @@ parameters:
   #values: [8, 16, 32, 64, 128]
   
  l_rate:
-  #value: 1e-4
-  values: [1e-4, 5e-5, 1e-5]
+  value: 1e-4
+  #values: [1e-4, 5e-5, 1e-5]
 
  batch_size: 
   value: 64
   #values: [32, 64]
 
  epochs: 
-  value: 1000
+  value: 500
 
  att_dim:
   value: 256
@@ -37,5 +39,5 @@ parameters:
   #values: [False, True]
   
  nonlv: 
-  #value: 1
-  values: [0.1, 0.2]
+  value: 0.5
+  #values: [0.1, 0.2]
