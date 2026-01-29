@@ -49,16 +49,16 @@ class ImageBagDataset(Dataset):
                  root_dir: str,
                  annotations_file: str,
                  transform,
-                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
-                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
+                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 #holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
                  with_frames: bool = False, 
                  numb_frames: int = 16, 
                  ) -> None:
         self.root_dir = root_dir
         self.bags = []
         clinical_table = pd.read_parquet(annotations_file)
-        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
 
@@ -124,15 +124,26 @@ class DenseNet121Extractor(nn.Module):
     def forward(self, x):
         return self.model(x)
     
+class ResNet18Extractor(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = models.resnet18(
+            weights=models.ResNet18_Weights.DEFAULT
+        )
+        self.model.classifier = nn.Identity()  # returns 512-dim vector
+
+    def forward(self, x):
+        return self.model(x)
+    
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-extractor = DenseNet121Extractor().to(device).eval()
+extractor = ResNet18Extractor().to(device).eval()
 
 def save_bag_features(images_tensor, bag_id, bag_label, extractor, out_feat_dir, out_labels_dir):
     os.makedirs(out_feat_dir, exist_ok=True)
     os.makedirs(out_labels_dir, exist_ok=True)
 
     with torch.no_grad():
-        feats = extractor(images_tensor.to(device))   # (bag_size, 1024)
+        feats = extractor(images_tensor.to(device))   # (bag_size, feat_dim)
 
     feats_np = feats.cpu().numpy()               # convert to numpy
 
