@@ -104,7 +104,7 @@ def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=
             step=epoch
             )
     
-    return val_loss, val_acc
+    return val_loss, val_acc, all_probs, Y_true
 
 def val_mask(model, device, criterion, dataloader, epoch, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False, additional_tables=False):
     model.eval()
