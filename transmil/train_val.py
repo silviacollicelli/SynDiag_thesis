@@ -46,26 +46,28 @@ def train_mask(model, device, criterion, optimizer, dataloader):
 
     return train_loss, train_acc
 
-def val(model, device, criterion, dataloader, epoch, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False, additional_tables=False):
+def val(model, device, criterion, dataloader, epoch, decision_thr=0.5, early_stop=False, patience=5, min_delta=0.001, additional_metrics=False, additional_tables=False):
     model.eval()
 
     sum_loss = 0.0
     Y_pred = []
     Y_true = []
     pos_probs = []
+    sigmoid = nn.Sigmoid()
     with torch.no_grad():
         for batch in dataloader:
             X = batch['X'].to(device)
             Y  = batch['Y'].to(device)
             out = model(X)
             loss = criterion(out, Y.float())
-            pred = (out > 0).float()
+            pred = (sigmoid(out) > decision_thr).float()
+            #pred = (out > 0).float()
             pos_probs.append(out)
             Y_pred.append(pred)
             Y_true.append(Y)
             sum_loss += loss.item()
 
-    sigmoid = nn.Sigmoid()
+
     pos_probs = sigmoid(torch.cat(pos_probs)).tolist()
     all_probs = [(1-p, p) for p in pos_probs]
     Y_true = torch.cat(Y_true).int().tolist()

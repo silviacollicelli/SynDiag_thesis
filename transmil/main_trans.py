@@ -30,7 +30,8 @@ defaults={
     "n_heads": 8,
     "n_landmarks": None,
     "dropout": 0,
-    "use_mlp": False
+    "use_mlp": False, 
+    "decision_thr": 0.5
 }
 
 wandb.login()
@@ -88,7 +89,7 @@ optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 
 for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
-    val_loss, val_acc = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
+    val_loss, val_acc = val(model, device, criterion, val_dataloader, epoch, decision_thr=config.decision_thr, additional_metrics=True)
     #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
