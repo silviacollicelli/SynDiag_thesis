@@ -1,5 +1,5 @@
 data:
- features_path: "/home/silvia.collicelli/project/embeddings/features"
+ features_path: "/home/silvia.collicelli/project/embeddings/new_preprocess/features"
  labels_path: "/home/silvia.collicelli/project/embeddings/labels"
  root_dir: "/home/silvia.collicelli/data/Dataset"
  annotations_file: "/home/silvia.collicelli/data/controlled_dataset_metadata.parquet"

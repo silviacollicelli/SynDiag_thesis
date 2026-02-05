@@ -10,10 +10,54 @@ from PIL import Image
 import torch.nn as nn
 import pandas as pd
 import random
+import torch.nn.functional as F
+import torchvision.transforms.functional as tF
 
+class PadToSquare:
+    def __init__(self, fill=0):
+        self.fill = fill
+
+    def __call__(self, img):
+        # img: PIL Image or Tensor (C, H, W)
+        if hasattr(img, "size"):  # PIL
+            w, h = img.size
+        else:  # Tensor
+            _, h, w = img.shape
+
+        max_side = max(h, w)
+        pad_h = max_side - h
+        pad_w = max_side - w
+
+        padding = (
+            pad_w // 2,
+            pad_h // 2,
+            pad_w - pad_w // 2,
+            pad_h - pad_h // 2,
+        )
+
+        return T.functional.pad(img, padding, fill=self.fill)
+    
+class CenterCropRelative:
+    def __init__(self, crop_pixels: int):
+        self.crop_pixels = crop_pixels
+
+    def __call__(self, img):
+        # PIL: img.size -> (W, H)
+        # Tensor: img.shape -> (C, H, W)
+        if hasattr(img, "size"):
+            w, h = img.size
+        else:
+            _, h, w = img.shape
+
+        new_h = max(1, h - self.crop_pixels)
+        new_w = max(1, w - self.crop_pixels)
+
+        return tF.center_crop(img, [new_h, new_w])
+    
 transform = T.Compose([
-    T.Resize((256, 256)),
-    T.CenterCrop(224),
+    PadToSquare(fill=0),
+    CenterCropRelative(270),
+    T.Resize((224, 224)),
     T.ToTensor(),
     T.Normalize(mean=[0.485, 0.456, 0.406], 
         std=[0.229, 0.224, 0.225]),
@@ -136,7 +180,7 @@ class ResNet18Extractor(nn.Module):
         return self.model(x)
     
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-extractor = ResNet18Extractor().to(device).eval()
+extractor = DenseNet121Extractor().to(device).eval()
 
 def save_bag_features(images_tensor, bag_id, bag_label, extractor, out_feat_dir, out_labels_dir):
     os.makedirs(out_feat_dir, exist_ok=True)
