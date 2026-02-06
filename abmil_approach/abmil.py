@@ -29,7 +29,7 @@ defaults={
     "att_dim": 256,
     "att_act": "relu",
     "early_stop": False,
-    "gated": True
+    "gated": False
 }
 
 wandb.login()
@@ -68,7 +68,7 @@ optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
     val_loss, val_acc, stop = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,

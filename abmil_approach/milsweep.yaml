@@ -1,5 +1,6 @@
-program: online_abmil2.py
-project: ABMIL_online
+program: abmil.py
+project: ABMIL_new_frames
+name: new_preprocess
 method: grid
 metric:
  name: val_loss

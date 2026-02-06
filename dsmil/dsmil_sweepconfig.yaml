@@ -1,15 +1,12 @@
 program: dsmil/dsmil.py
 project: DSMIL_sweep
 method: grid
-name: best_with_resnet
-description: sweep with best configuration of DenseNet121 but using ResNet18 as backbone
+name: new_preprocess
+description: sweep with different preprocessing
 metric:
  name: f1_score
  goal: maximize
 
-#runna questa conf per più epoche
-#non linear v,q e dropout, ma learning rate più piccolo -> vedi se diminuisce la variability
-#poi scegli ultimo sweep e fai ultimo sweep su numb_frames, batch size
 parameters: 
 
  fold:
