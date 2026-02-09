@@ -114,57 +114,65 @@ class GNNtopk(nn.Module):
 
         return self.classifier(graph_emb).squeeze(-1)
 
+def diffpool_manual(z, s, batch):
+    """
+    z: [N, F] node embeddings
+    s: [N, C] assignment matrix
+    batch: [N] batch vector
+    """
 
-class GNNcluster(nn.Module):
-    def __init__(
-        self,
-        in_dim,
-        hidden_dim,
-        num_clusters=1,   # <-- generic C
-    ):
+    s = torch.softmax(s, dim=-1)
+
+    out = []
+    for b in batch.unique():
+        mask = batch == b
+        z_b = z[mask]      # [N_b, F]
+        s_b = s[mask]      # [N_b, C]
+
+        x_pool = s_b.t() @ z_b  # [C, F]
+        out.append(x_pool)
+
+    return torch.cat(out, dim=0)
+
+
+class ClusterGNNMIL(nn.Module):
+    def __init__(self, in_dim=1024, 
+                 hidden_dim=256, 
+                 num_clusters=1, 
+                 out_dim=2
+                 ):
         super().__init__()
 
         self.num_clusters = num_clusters
 
-        self.gnn_embed = nn.ModuleList([
+        self.gnn_embed = nn.Sequential(
             SAGEConv(in_dim, hidden_dim),
-            SAGEConv(hidden_dim, hidden_dim)
-        ])
-
-        # GNN to compute assignment matrix S
-        self.gnn_assign = nn.ModuleList([
-            SAGEConv(in_dim, hidden_dim),
-            SAGEConv(hidden_dim, num_clusters)
-        ])
-
-        self.diffpool = DiffPool()
-        self.classifier = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, 1)
+            SAGEConv(hidden_dim, hidden_dim),
+            nn.ReLU()
+        )
+
+        self.gnn_assign = nn.Sequential(
+            SAGEConv(in_dim, hidden_dim),
+            nn.ReLU(),
+            SAGEConv(hidden_dim, num_clusters)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim * num_clusters, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, out_dim)
         )
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        # Node embeddings Z
-        z = x
-        for conv in self.gnn_embed:
-            z = F.relu(conv(z, edge_index))
+        z = self.gnn_embed(x, edge_index)
+        s = self.gnn_assign(x, edge_index)
 
-        # Assignment matrix S
-        s = x
-        for conv in self.gnn_assign:
-            s = conv(s, edge_index)
+        x_pool = diffpool_manual(z, s, batch)
+        x_pool = x_pool.view(batch.max() + 1, -1)
 
-        # DiffPool
-        x_pool, edge_index_pool, batch_pool, _, _ = self.diffpool(
-            z, edge_index, s, batch
-        )
-
-        # Cluster → bag aggregation
-        graph_emb = global_mean_pool(x_pool, batch_pool)
-
-        return self.classifier(graph_emb)
+        return self.classifier(x_pool)
 
         
