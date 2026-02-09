@@ -6,6 +6,7 @@ from torch_geometric.nn import (
     global_mean_pool,
     global_max_pool,
     AttentionalAggregation,
+    DiffPool,
     TopKPooling
 )
 
@@ -114,5 +115,56 @@ class GNNtopk(nn.Module):
         return self.classifier(graph_emb).squeeze(-1)
 
 
+class GNNcluster(nn.Module):
+    def __init__(
+        self,
+        in_dim,
+        hidden_dim,
+        num_clusters=1,   # <-- generic C
+    ):
+        super().__init__()
+
+        self.num_clusters = num_clusters
+
+        self.gnn_embed = nn.ModuleList([
+            SAGEConv(in_dim, hidden_dim),
+            SAGEConv(hidden_dim, hidden_dim)
+        ])
+
+        # GNN to compute assignment matrix S
+        self.gnn_assign = nn.ModuleList([
+            SAGEConv(in_dim, hidden_dim),
+            SAGEConv(hidden_dim, num_clusters)
+        ])
+
+        self.diffpool = DiffPool()
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        # Node embeddings Z
+        z = x
+        for conv in self.gnn_embed:
+            z = F.relu(conv(z, edge_index))
+
+        # Assignment matrix S
+        s = x
+        for conv in self.gnn_assign:
+            s = conv(s, edge_index)
+
+        # DiffPool
+        x_pool, edge_index_pool, batch_pool, _, _ = self.diffpool(
+            z, edge_index, s, batch
+        )
+
+        # Cluster → bag aggregation
+        graph_emb = global_mean_pool(x_pool, batch_pool)
+
+        return self.classifier(graph_emb)
 
         

@@ -1,10 +1,10 @@
 from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
+from model import GNNsimple, GNNtopk, GNNcluster
 from torch_geometric.loader import DataLoader
 from dataset import GraphMILDataset
 from torch.utils.data import Subset
 from train import train, val
-from model import GNNsimple, GNNtopk
 from utils import set_seed
 import torch.nn as nn
 import numpy as np
@@ -32,7 +32,8 @@ defaults = {
     'layers': 2,            #[1,2,3]
     'topk_ratio': 0.3,      #[0.1,0.2,0.3]
     'pooling': 'mean',      #[mean, max, attention]
-    'model': 'simple'       #[simple,topk,clusters]
+    'model': 'clusters',    #[simple,topk,clusters]
+    'C': 1                  #[1,3,5]
 }
 
 wandb.login()
@@ -70,6 +71,7 @@ val_dataloader = DataLoader(
 )
 
 in_shape = graph_dataset[0]['x'].size(1)
+#combine the different types of model in a single class!
 if config.model == 'simple':
     model = GNNsimple(
         in_dim=in_shape, 
@@ -85,6 +87,15 @@ elif config.model == 'topk':
         topk_ratio=config.topk_ratio,
         aggr=config.pooling
     ).to(device)
+elif config.model == 'clusters':
+    model = GNNcluster(
+        in_dim=in_shape,
+        hidden_dim=config.hidden_dim,
+        num_clusters=config.C
+    ).to(device)
+else:
+    print("Error: you don't have this model!")
+
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 criterion = nn.BCEWithLogitsLoss()
 
