@@ -5,7 +5,7 @@ import pandas as pd
 from PIL import Image
 import yaml
 import numpy as np
-import torchvision.transforms as transforms
+import torchvision.transforms as T
 from torch.utils.data import Dataset
 
 
@@ -47,21 +47,21 @@ def video_to_frames(video_path, output_dir, num_frames=32):
 
     return expected_paths
 
-train_transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomVerticalFlip(),
-    transforms.RandomRotation(10),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-])
+#train_transform = T.Compose([
+#    T.Resize((256, 256)),
+#    T.RandomHorizontalFlip(),
+#    T.RandomVerticalFlip(),
+#    T.RandomRotation(10),
+#    T.CenterCrop(224),
+#    T.ToTensor(),
+#    T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+#])
 
-val_transform = transforms.Compose([
-    transforms.Resize((256, 256)),
-    transforms.CenterCrop(224),
-    transforms.ToTensor(),
-    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+transform = T.Compose([
+    T.Resize((256, 256)),
+    T.CenterCrop(224),
+    T.ToTensor(),
+    T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
 ])
 
 class MyDataset(Dataset):
@@ -69,15 +69,15 @@ class MyDataset(Dataset):
                  annotations_file, 
                  img_dir, 
                  frames_fold,
-                 holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
-                 #holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
+                 #holsbeke_histo = [['endometrioma', 'cystadenoma-fibroma', 'fibroma'], ['epithelial_invasive']],
+                 holsbeke_histo = [['dermoid', 'serous_cystadenoma'], ['endometrioid_adenocarcinoma', 'high_grade_serous_adenocarcinoma', 'adenocarcinoma', 'clear_cell_carcinoma']],
                  with_frames: bool = True,
                  transform=None):
         self.samples = []
         
         clinical_table = pd.read_parquet(annotations_file)
-        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
-        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
+        #img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['holsbeke_histological']))
+        img_labels = dict(zip(clinical_table['clinical_case'], clinical_table['histological']))
         considered_histo = set([h for group in holsbeke_histo for h in group])
         self.histo_dict = {k:v for k, v in img_labels.items() if v in considered_histo}
         self.labels_dict = {
@@ -130,5 +130,5 @@ class MyDataset(Dataset):
 with open("config.yaml", "r") as file:
     base_cfg = yaml.safe_load(file)
 
-#data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'], base_cfg["data"]["frames_folder"])
-#print(len(data))
+data = MyDataset(base_cfg['data']['clinical_path'], base_cfg['data']['folder_path'], base_cfg["data"]["frames_folder"])
+print(data[0])

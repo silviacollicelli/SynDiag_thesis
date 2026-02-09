@@ -4,8 +4,6 @@ import numpy as np
 import torch.nn as nn
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, accuracy_score, recall_score
 
-import torch.nn as nn
-
 def train(model, device, criterion, optimizer, dataloader):
     model.train()
     sum_loss = 0.0

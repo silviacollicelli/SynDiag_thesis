@@ -44,6 +44,9 @@ def train(model, device, criterion, optimizer, train_loader):
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
+        _, predicted = torch.max(outputs.data, 1)
+        correct += (predicted == labels).sum().item()
+
         sum_loss += loss.item()
         
     train_loss = sum_loss / len(train_loader)
