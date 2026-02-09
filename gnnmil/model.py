@@ -6,7 +6,6 @@ from torch_geometric.nn import (
     global_mean_pool,
     global_max_pool,
     AttentionalAggregation,
-    DiffPool,
     TopKPooling
 )
 
@@ -135,44 +134,45 @@ def diffpool_manual(z, s, batch):
     return torch.cat(out, dim=0)
 
 
-class ClusterGNNMIL(nn.Module):
+class GNNcluster(nn.Module):
     def __init__(self, in_dim=1024, 
                  hidden_dim=256, 
-                 num_clusters=1, 
-                 out_dim=2
+                 num_clusters=1
                  ):
         super().__init__()
 
         self.num_clusters = num_clusters
 
-        self.gnn_embed = nn.Sequential(
+        self.gnn_embed = nn.ModuleList([
             SAGEConv(in_dim, hidden_dim),
-            nn.ReLU(),
-            SAGEConv(hidden_dim, hidden_dim),
-            nn.ReLU()
-        )
+            SAGEConv(hidden_dim, hidden_dim)
+        ])
 
-        self.gnn_assign = nn.Sequential(
+        self.gnn_assign = nn.ModuleList([
             SAGEConv(in_dim, hidden_dim),
-            nn.ReLU(),
             SAGEConv(hidden_dim, num_clusters)
-        )
+        ])
 
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim * num_clusters, hidden_dim),
             nn.ReLU(),
-            nn.Linear(hidden_dim, out_dim)
+            nn.Linear(hidden_dim, 1)
         )
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        z = self.gnn_embed(x, edge_index)
-        s = self.gnn_assign(x, edge_index)
+        z = x
+        for conv in self.gnn_embed:
+            z = F.relu(conv(z, edge_index))
+
+        s = x
+        for conv in self.gnn_assign:
+            s = conv(s, edge_index)
 
         x_pool = diffpool_manual(z, s, batch)
         x_pool = x_pool.view(batch.max() + 1, -1)
 
-        return self.classifier(x_pool)
+        return self.classifier(x_pool).squeeze(-1)
 
         
