@@ -1,0 +1,116 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch_geometric.nn import (  
+    SAGEConv,
+    global_mean_pool,
+    global_max_pool,
+    AttentionalAggregation,
+    TopKPooling
+)
+
+class GNNsimple(nn.Module):
+    def __init__(
+        self,
+        in_dim,
+        hidden_dim,
+        num_layers=2,
+        pooling="mean"
+    ):
+        super().__init__()
+
+        # --- GNN layers --- (SAGEConv layers!)
+        self.convs = nn.ModuleList()
+        self.convs.append(SAGEConv(in_dim, hidden_dim)) #always at least one layer
+        for _ in range(num_layers - 1):
+            self.convs.append(SAGEConv(hidden_dim, hidden_dim))
+
+        # --- Pooling ---
+        if pooling == "mean":
+            self.pool = global_mean_pool
+        elif pooling == "max":
+            self.pool = global_max_pool
+        elif pooling == "attention":
+            gate_nn = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.Tanh(),
+                nn.Linear(hidden_dim, 1)
+            )
+            self.pool = AttentionalAggregation(gate_nn)
+        else:
+            raise ValueError("Unknown pooling")
+
+        # --- MLP classifier ---
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Dropout(0.3),            #eventual sweep also on the dropout rate
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        for conv in self.convs:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+        graph_emb = self.pool(x, batch)
+        out = self.classifier(graph_emb).squeeze(-1)
+        return out
+
+class GNNtopk(nn.Module):
+    def __init__(
+        self,
+        in_dim,
+        hidden_dim,
+        num_layers=2,
+        topk_ratio=0.3,
+        aggr="mean"
+    ):
+        super().__init__()
+
+        self.convs = nn.ModuleList()
+        self.convs.append(SAGEConv(in_dim, hidden_dim))
+        for _ in range(num_layers - 1):
+            self.convs.append(SAGEConv(hidden_dim, hidden_dim))
+
+        self.pool = TopKPooling(
+            hidden_dim,
+            ratio=topk_ratio        #k = ceil(ratio * N)
+        )
+
+        if aggr == "mean":
+            self.aggr = global_mean_pool
+        elif aggr == "max":
+            self.aggr = global_max_pool
+        elif aggr == "attention":
+            gate_nn = nn.Sequential(
+                nn.Linear(hidden_dim, hidden_dim),
+                nn.Tanh(),
+                nn.Linear(hidden_dim, 1)
+            )
+            self.aggr = AttentionalAggregation(gate_nn)
+        else:
+            raise ValueError("Unknown pooling")
+        
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+        
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        for conv in self.convs:
+            x = conv(x, edge_index)
+            x = F.relu(x)
+
+        x, edge_index, _, batch, _, _ = self.pool(x, edge_index, batch=batch)
+        graph_emb = self.aggr(x, batch)
+
+        return self.classifier(graph_emb).squeeze(-1)
+
+
+
+        
