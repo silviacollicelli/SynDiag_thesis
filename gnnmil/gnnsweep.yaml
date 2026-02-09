@@ -1,7 +1,7 @@
 program: main.py
 project: GNN_sweep
-name: first_test_sweep
-description: prova con dataset ridotto
+name: simple_small_hd
+description: simple model, with smaller hidden dimension = 128
 method: grid
 metric:
  name: f1_score
@@ -11,26 +11,35 @@ parameters:
  fold:
   values: [0, 1, 2, 3, 4]
   
-# numb_frames:
-#  values: [8, 16, 32, 64, 128]
-#  
+ numb_frames:
+  value: 16
+  #values: [32, 64, 128]
+  
  l_rate:
   value: 1e-4
-#
-# batch_size: 
-#  values: [32, 64]
-#
+
+ batch_size: 
+  value: 64
+  #values: [32, 64]
+
  epochs: 
-  value: 150
+  value: 100
 
  k: 
-  values: [2, 3, 4]
+  value: 3
+  #values: [3, 8, 15]
  
  hidden_dim:
-  values: [256, 512]
+  value: 128
+  #values: [128, 256, 512]
 
  pooling:
-  values: ['mean', 'max', 'attention']
+  value: 'mean'
+  #values: ['mean', 'max', 'attention']
 
  layers:
-  values: [1, 2, 3]
+  value: 2
+  #values: [1, 2, 3]
+
+ #topk_ratio:
+ # values: [0.2, 0.3]

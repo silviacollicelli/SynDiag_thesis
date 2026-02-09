@@ -24,6 +24,7 @@ class GNNsimple(nn.Module):
         self.convs.append(SAGEConv(in_dim, hidden_dim)) #always at least one layer
         for _ in range(num_layers - 1):
             self.convs.append(SAGEConv(hidden_dim, hidden_dim))
+        self.bn = nn.BatchNorm1d(hidden_dim)
 
         # --- Pooling ---
         if pooling == "mean":
@@ -53,6 +54,7 @@ class GNNsimple(nn.Module):
 
         for conv in self.convs:
             x = conv(x, edge_index)
+            #x = self.bn(x)
             x = F.relu(x)
         graph_emb = self.pool(x, batch)
         out = self.classifier(graph_emb).squeeze(-1)

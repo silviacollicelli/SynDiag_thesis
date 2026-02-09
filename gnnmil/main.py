@@ -22,16 +22,17 @@ k_folds = base_cfg["k_folds"]
 seed = base_cfg['seed']
 
 defaults = {
-    'epochs': 15,
+    'epochs': 150,
     'l_rate': 1e-4,
     'fold': 0,
-    'batch_size': 2,
-    'k': 2,                 #[2,3,6]
+    'batch_size': 64,
+    'k': 4,                 #[2,3,6]
     'numb_frames': 16,      #better have larger value?
     'hidden_dim': 256,      #[512,256,128]
     'layers': 2,            #[1,2,3]
     'topk_ratio': 0.3,      #[0.1,0.2,0.3]
-    'pooling': 'mean'       #[mean, max, attention]
+    'pooling': 'mean',      #[mean, max, attention]
+    'model': 'simple'       #[simple,topk,clusters]
 }
 
 wandb.login()
@@ -69,19 +70,21 @@ val_dataloader = DataLoader(
 )
 
 in_shape = graph_dataset[0]['x'].size(1)
-#model = GNNsimple(
-#    in_dim=in_shape, 
-#    hidden_dim=config.hidden_dim, 
-#    num_layers=config.layers,
-#    pooling=config.pooling
-#).to(device)
-model = GNNtopk(
-    in_dim=in_shape,
-    hidden_dim=config.hidden_dim,
-    num_layers=config.layers,
-    topk_ratio=config.topk_ratio,
-    aggr=config.pooling
-)
+if config.model == 'simple':
+    model = GNNsimple(
+        in_dim=in_shape, 
+        hidden_dim=config.hidden_dim, 
+        num_layers=config.layers,
+        pooling=config.pooling
+    ).to(device)
+elif config.model == 'topk':
+    model = GNNtopk(
+        in_dim=in_shape,
+        hidden_dim=config.hidden_dim,
+        num_layers=config.layers,
+        topk_ratio=config.topk_ratio,
+        aggr=config.pooling
+    ).to(device)
 optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
 criterion = nn.BCEWithLogitsLoss()
 

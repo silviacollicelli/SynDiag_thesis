@@ -2,12 +2,13 @@ import torch
 from torchmil.datasets import BinaryClassificationDataset
 from torch_geometric.utils import to_undirected
 from torch_geometric.data import Dataset, Data
+import torch.nn.functional as F
 
 def build_edge_index(x, k):
     num_nodes = x.size(0)
     if num_nodes <= 1:
         return torch.empty((2, 0), dtype=torch.long)    # single node: no edges
-
+    #x = F.normalize(x, p=2, dim=1)
     dist = torch.cdist(x, x)        # pairwise Euclidean distances
     dist.fill_diagonal_(float('inf'))       # ignore self-distance
     knn = dist.topk(k=min(k, num_nodes - 1), largest=False).indices         # k nearest neighbors
