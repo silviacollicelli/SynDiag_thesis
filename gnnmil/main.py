@@ -1,6 +1,6 @@
 from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
-from model import GNNsimple, GNNtopk, GNNcluster
+from model import GNNsimple, GNNtopk, GNNcluster, DiffPoolGNNMIL
 from torch_geometric.loader import DataLoader
 from dataset import GraphMILDataset
 from torch.utils.data import Subset
@@ -15,6 +15,7 @@ import yaml
 with open("gnnconfig.yaml", "r") as file:
     base_cfg = yaml.safe_load(file)
 
+#device = torch.device("cpu")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 features_path = base_cfg["data"]["features_path"]
 labels_path = base_cfg["data"]["labels_path"]
@@ -23,7 +24,7 @@ seed = base_cfg['seed']
 
 defaults = {
     'epochs': 150,
-    'l_rate': 1e-4,
+    'l_rate': 5e-5,
     'fold': 0,
     'batch_size': 64,
     'k': 4,                 #[2,3,6]
@@ -32,8 +33,7 @@ defaults = {
     'layers': 2,            #[1,2,3]
     'topk_ratio': 0.3,      #[0.1,0.2,0.3]
     'pooling': 'mean',      #[mean, max, attention]
-    'model': 'clusters',    #[simple,topk,clusters]
-    'C': 1                  #[1,3,5]
+    'model': 'clusters1',    #[simple,topk,clusters]
 }
 
 wandb.login()
@@ -87,11 +87,17 @@ elif config.model == 'topk':
         topk_ratio=config.topk_ratio,
         aggr=config.pooling
     ).to(device)
-elif config.model == 'clusters':
+elif config.model == 'clusters1':
     model = GNNcluster(
         in_dim=in_shape,
         hidden_dim=config.hidden_dim,
-        num_clusters=config.C
+        num_clusters=1
+    ).to(device)
+elif config.model == 'clusters2':
+    model = DiffPoolGNNMIL(
+        in_dim=in_shape,
+        hidden_dim=config.hidden_dim,
+        C=2
     ).to(device)
 else:
     print("Error: you don't have this model!")

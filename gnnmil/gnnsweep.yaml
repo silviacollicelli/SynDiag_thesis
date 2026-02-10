@@ -1,7 +1,7 @@
 program: main.py
 project: GNN_sweep
-name: simple_small_hd
-description: simple model, with smaller hidden dimension = 128
+name: first_1cluster
+description: first weep with complex model for 1 cluster
 method: grid
 metric:
  name: f1_score
@@ -16,7 +16,7 @@ parameters:
   #values: [32, 64, 128]
   
  l_rate:
-  value: 1e-4
+  values: [1e-4, 5e-5, 1e-5]
 
  batch_size: 
   value: 64
@@ -26,12 +26,12 @@ parameters:
   value: 100
 
  k: 
-  value: 3
-  #values: [3, 8, 15]
+  #value: 3
+  values: [3, 8, 15]
  
  hidden_dim:
-  value: 128
-  #values: [128, 256, 512]
+  #value: 128
+  values: [128, 256, 512]
 
  pooling:
   value: 'mean'

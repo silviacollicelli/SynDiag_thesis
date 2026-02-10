@@ -8,6 +8,7 @@ from torch_geometric.nn import (
     AttentionalAggregation,
     TopKPooling
 )
+from torch_geometric.utils import to_dense_adj, dense_to_sparse
 
 class GNNsimple(nn.Module):
     def __init__(
@@ -175,4 +176,92 @@ class GNNcluster(nn.Module):
 
         return self.classifier(x_pool).squeeze(-1)
 
+def diffpool_dense(z, s, edge_index, num_nodes):
+    """
+    z: [N, F] node embeddings
+    s: [N, C] assignment matrix
+    edge_index: sparse adjacency
+    """
+
+    # Dense adjacency
+    A = to_dense_adj(edge_index, max_num_nodes=num_nodes)[0]  # [N, N]
+
+    s = torch.softmax(s, dim=-1)
+
+    # Pooled features and adjacency
+    X_pool = s.T @ z              # [C, F]
+    A_pool = s.T @ A @ s          # [C, C]
+
+    return X_pool, A_pool
         
+
+class DiffPoolGNNMIL(nn.Module):
+    def __init__(self, in_dim=1024, hidden_dim=256, C=1):
+        super().__init__()
+
+        self.C = C
+        self.hidden_dim = hidden_dim
+
+        # 1️⃣ Node embedding GNN
+        self.gnn_embed = SAGEConv(in_dim, hidden_dim)
+
+        # 2️⃣ Assignment GNN
+        self.gnn_assign = SAGEConv(in_dim, C)
+
+        # 3️⃣ Second embedding on pooled graph
+        self.gnn_embed2 = SAGEConv(hidden_dim, hidden_dim)
+
+        # 4️⃣ Classifier
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim * C, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        Z = F.relu(self.gnn_embed(x, edge_index))
+        S = self.gnn_assign(x, edge_index)
+
+        pooled_X = []
+        pooled_A = []
+
+        for b in batch.unique():
+            mask = batch == b
+
+            z_b = Z[mask]
+            s_b = S[mask]
+
+            # edges belonging to this bag
+            node_idx = torch.where(mask)[0]
+            edge_mask = torch.isin(edge_index[0], node_idx) & torch.isin(edge_index[1], node_idx)
+            edge_b = edge_index[:, edge_mask]
+            edge_b = edge_b - node_idx.min()  # reindex
+
+            X_pool, A_pool = diffpool_dense(
+                z_b, s_b, edge_b, z_b.size(0)
+            )
+
+            pooled_X.append(X_pool)
+            pooled_A.append(A_pool)
+
+        # concatenate pooled graphs
+        X_pool = torch.cat(pooled_X, dim=0)   # [(B·C), F]
+
+        # build pooled edge_index
+        A_pool = torch.block_diag(*pooled_A)
+        edge_index_pool, _ = dense_to_sparse(A_pool)
+
+        # batch vector for pooled graph
+        batch_pool = torch.repeat_interleave(
+            torch.arange(len(pooled_X), device=x.device), self.C
+        )
+
+        # 3️⃣ Second GNN
+        Z_pool = F.relu(self.gnn_embed2(X_pool, edge_index_pool))
+
+        # 4️⃣ Concatenate clusters per bag
+        graph_emb = Z_pool.view(len(pooled_X), -1)
+
+        return self.classifier(graph_emb).squeeze(-1)
