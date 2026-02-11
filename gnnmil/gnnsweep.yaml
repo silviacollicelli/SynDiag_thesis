@@ -1,7 +1,7 @@
 program: main.py
 project: GNN_sweep
-name: first_1cluster
-description: first weep with complex model for 1 cluster
+name: first_2cluster
+description: first sweep with complex model for 2 clusters, my model
 method: grid
 metric:
  name: f1_score

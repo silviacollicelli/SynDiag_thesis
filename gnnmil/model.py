@@ -287,22 +287,22 @@ class GNNpaper(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim * num_clusters, hidden_dim),
             nn.LeakyReLU(),
-            nn.Linear(hidden_dim, 1),
-            nn.LeakyReLU()
+            nn.Linear(hidden_dim, 1)
         )
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
         z = F.leaky_relu(self.gnn_embd(x, edge_index), negative_slope=0.01)
-        s = F.leaky_relu(self.gnn_pool(x, edge_index), negative_slope=0.01)
-        s = F.leaky_relu(self.mlp(s), negative_slope=0.01)
+        s = F.leaky_relu(self.gnn_pool(z, edge_index), negative_slope=0.01)
+        s = self.mlp(s)
 
         s, _ = to_dense_batch(s, batch)
         z, mask = to_dense_batch(z, batch)
         a = to_dense_adj(edge_index, batch)
-        z, a, _, _ = dense_diff_pool(z, a, s, mask)
+        z, a, link_loss, ent_loss = dense_diff_pool(z, a, s, mask)
         
         x = F.leaky_relu(self.gnn_embd2(z, a))
         x = x.reshape(x.size(0), -1)
-        return self.classifier(x).squeeze(-1)
+        return self.classifier(x).squeeze(-1),  link_loss + ent_loss
+

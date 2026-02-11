@@ -23,11 +23,11 @@ k_folds = base_cfg["k_folds"]
 seed = base_cfg['seed']
 
 defaults = {
-    'epochs': 150,
+    'epochs': 250,
     'l_rate': 5e-5,
     'fold': 0,
-    'batch_size': 2,
-    'k': 4,                 #[2,3,6]
+    'batch_size': 64,
+    'k': 8,                 #[2,3,6]
     'numb_frames': 16,      #better have larger value?
     'hidden_dim': 256,      #[512,256,128]
     'layers': 2,            #[1,2,3]
@@ -102,13 +102,13 @@ elif config.model == 'clusters2':
 else:
     print("Error: you don't have this model!")
 
-optimizer = torch.optim.Adam(model.parameters(), config.l_rate)
+optimizer = torch.optim.Adam(model.parameters(), config.l_rate, weight_decay=1e-4)
 criterion = nn.BCEWithLogitsLoss()
 
 for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
     val_loss, val_acc = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,
