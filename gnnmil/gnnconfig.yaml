@@ -1,8 +1,8 @@
 data:
- features_path: "/home/silvia.collicelli/project/embeddings/features"
- labels_path: "/home/silvia.collicelli/project/embeddings/labels"
- #features_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\features"
- #labels_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\labels"
+ #features_path: "/home/silvia.collicelli/project/embeddings/features"
+ #labels_path: "/home/silvia.collicelli/project/embeddings/labels"
+ features_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\features"
+ labels_path: "C:\\Users\\utente\\Documents\\UNI\\MAGISTRALE\\tesi\\raw_dataset\\artifacts\\embeddings\\labels"
 
 k_folds: 5
 seed: 0

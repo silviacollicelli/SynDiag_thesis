@@ -3,12 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import (  
     SAGEConv,
+    DenseSAGEConv,
+    dense_diff_pool,
     global_mean_pool,
     global_max_pool,
     AttentionalAggregation,
     TopKPooling
 )
-from torch_geometric.utils import to_dense_adj, dense_to_sparse
+from torch_geometric.utils import to_dense_batch, to_dense_adj, dense_to_sparse
 
 class GNNsimple(nn.Module):
     def __init__(
@@ -265,3 +267,42 @@ class DiffPoolGNNMIL(nn.Module):
         graph_emb = Z_pool.view(len(pooled_X), -1)
 
         return self.classifier(graph_emb).squeeze(-1)
+
+
+class GNNpaper(nn.Module):
+    def __init__(self,
+                 in_dim,
+                 hidden_dim,
+                 num_clusters
+                 ):
+        super().__init__()
+
+        self.gnn_embd = SAGEConv(in_dim, hidden_dim)
+
+        self.gnn_pool = SAGEConv(hidden_dim, num_clusters)
+        self.mlp = nn.Linear(num_clusters, num_clusters)
+
+        self.gnn_embd2 = DenseSAGEConv(hidden_dim, hidden_dim)
+
+        self.classifier = nn.Sequential(
+            nn.Linear(hidden_dim * num_clusters, hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_dim, 1),
+            nn.LeakyReLU()
+        )
+
+    def forward(self, data):
+        x, edge_index, batch = data.x, data.edge_index, data.batch
+
+        z = F.leaky_relu(self.gnn_embd(x, edge_index), negative_slope=0.01)
+        s = F.leaky_relu(self.gnn_pool(x, edge_index), negative_slope=0.01)
+        s = F.leaky_relu(self.mlp(s), negative_slope=0.01)
+
+        s, _ = to_dense_batch(s, batch)
+        z, mask = to_dense_batch(z, batch)
+        a = to_dense_adj(edge_index, batch)
+        z, a, _, _ = dense_diff_pool(z, a, s, mask)
+        
+        x = F.leaky_relu(self.gnn_embd2(z, a))
+        x = x.reshape(x.size(0), -1)
+        return self.classifier(x).squeeze(-1)

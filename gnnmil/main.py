@@ -1,6 +1,6 @@
 from torchmil.datasets import BinaryClassificationDataset
 from sklearn.model_selection import StratifiedKFold
-from model import GNNsimple, GNNtopk, GNNcluster, DiffPoolGNNMIL
+from model import GNNsimple, GNNtopk, GNNcluster, DiffPoolGNNMIL, GNNpaper
 from torch_geometric.loader import DataLoader
 from dataset import GraphMILDataset
 from torch.utils.data import Subset
@@ -26,7 +26,7 @@ defaults = {
     'epochs': 150,
     'l_rate': 5e-5,
     'fold': 0,
-    'batch_size': 64,
+    'batch_size': 2,
     'k': 4,                 #[2,3,6]
     'numb_frames': 16,      #better have larger value?
     'hidden_dim': 256,      #[512,256,128]
@@ -88,10 +88,10 @@ elif config.model == 'topk':
         aggr=config.pooling
     ).to(device)
 elif config.model == 'clusters1':
-    model = GNNcluster(
+    model = GNNpaper(
         in_dim=in_shape,
         hidden_dim=config.hidden_dim,
-        num_clusters=1
+        num_clusters=2
     ).to(device)
 elif config.model == 'clusters2':
     model = DiffPoolGNNMIL(
@@ -108,7 +108,7 @@ criterion = nn.BCEWithLogitsLoss()
 for epoch in range(config.epochs):      
     train_loss, train_acc = train(model, device, criterion, optimizer, train_dataloader)
     val_loss, val_acc = val(model, device, criterion, val_dataloader, epoch, additional_metrics=True)
-    #print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
+    print(f"\tEpoch {epoch+1} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")            
 
     wandb.log({
         "val_loss": val_loss,
