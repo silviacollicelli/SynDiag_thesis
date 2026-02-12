@@ -17,7 +17,7 @@ def train(model, device, criterion, optimizer, dataloader):
     for data in dataloader:
         data = data.to(device)
         optimizer.zero_grad()
-        out, loss_dp = model(data)
+        out = model(data)
         loss = criterion(out, data.y.float())
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), 2.0)
@@ -41,7 +41,7 @@ def val(model, device, criterion, dataloader, epoch, additional_metrics=True, ad
     with torch.no_grad():
         for data in dataloader:
             data = data.to(device)
-            out, loss_dp = model(data)
+            out= model(data)
             loss = criterion(out, data.y.float())
             pred = (out > 0).float()
             pos_probs.append(out)

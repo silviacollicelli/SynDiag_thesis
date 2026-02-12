@@ -1,7 +1,7 @@
 program: main.py
 project: GNN_sweep
-name: first_2cluster
-description: first sweep with complex model for 2 clusters, my model
+name: clusters_model_newcode
+description: sweep with clusters model (both 1 and 2) and adapted unique code for three types of model
 method: grid
 metric:
  name: f1_score
@@ -16,14 +16,15 @@ parameters:
   #values: [32, 64, 128]
   
  l_rate:
-  values: [1e-4, 5e-5, 1e-5]
+  value: 5e-5
+  #values: [1e-4, 5e-5]
 
  batch_size: 
   value: 64
   #values: [32, 64]
 
  epochs: 
-  value: 100
+  value: 150
 
  k: 
   #value: 3
@@ -38,8 +39,10 @@ parameters:
   #values: ['mean', 'max', 'attention']
 
  layers:
-  value: 2
-  #values: [1, 2, 3]
+  values: [1, 2]
 
  #topk_ratio:
- # values: [0.2, 0.3]
+ # values: [0.2, 0.3, 0.4]
+
+ num_clusters:
+  values: [1, 2]

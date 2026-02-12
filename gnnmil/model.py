@@ -273,11 +273,39 @@ class GNNpaper(nn.Module):
     def __init__(self,
                  in_dim,
                  hidden_dim,
+                 method,
+                 aggreg,
+                 num_layers,
+                 topk_ratio,
                  num_clusters
                  ):
         super().__init__()
 
-        self.gnn_embd = SAGEConv(in_dim, hidden_dim)
+        self.method = method
+        self.gnn_embd = nn.ModuleList()
+        self.gnn_embd.append(SAGEConv(in_dim, hidden_dim))
+        for _ in range(num_layers - 1):
+            self.gnn_embd.append(SAGEConv(hidden_dim, hidden_dim))
+
+        self.kpool = TopKPooling(
+            hidden_dim,
+            ratio=topk_ratio
+        )
+
+        if self.method in ['simple', 'topk']:
+            if aggreg == "mean":
+                self.aggr = global_mean_pool
+            elif aggreg == "max":
+                self.aggr = global_max_pool
+            elif aggreg == "attention":
+                gate_nn = nn.Sequential(
+                    nn.Linear(hidden_dim, hidden_dim),
+                    nn.Tanh(),
+                    nn.Linear(hidden_dim, 1)
+                )
+                self.aggr = AttentionalAggregation(gate_nn)
+            else:
+                raise ValueError("Unknown pooling")
 
         self.gnn_pool = SAGEConv(hidden_dim, num_clusters)
         self.mlp = nn.Linear(num_clusters, num_clusters)
@@ -287,22 +315,32 @@ class GNNpaper(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(hidden_dim * num_clusters, hidden_dim),
             nn.LeakyReLU(),
+            nn.Dropout(0.3),
             nn.Linear(hidden_dim, 1)
         )
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
+        for conv in self.gnn_embd:
+            x = F.leaky_relu(conv(x, edge_index))
 
-        z = F.leaky_relu(self.gnn_embd(x, edge_index), negative_slope=0.01)
-        s = F.leaky_relu(self.gnn_pool(z, edge_index), negative_slope=0.01)
-        s = self.mlp(s)
+        if self.method == 'topk':
+            x, edge_index, _, batch, _, _ = self.kpool(x, edge_index, batch=batch)
 
-        s, _ = to_dense_batch(s, batch)
-        z, mask = to_dense_batch(z, batch)
-        a = to_dense_adj(edge_index, batch)
-        z, a, link_loss, ent_loss = dense_diff_pool(z, a, s, mask)
+        if self.method in ['simple', 'topk']:
+            graph_emb = self.aggr(x, batch)
+            return self.classifier(graph_emb).squeeze(-1)
         
-        x = F.leaky_relu(self.gnn_embd2(z, a))
-        x = x.reshape(x.size(0), -1)
-        return self.classifier(x).squeeze(-1),  link_loss + ent_loss
+        if self.method == 'clusters':
+            s = F.leaky_relu(self.gnn_pool(x, edge_index), negative_slope=0.01)
+            s = self.mlp(s)
+
+            s, _ = to_dense_batch(s, batch)
+            z, mask = to_dense_batch(x, batch)
+            a = to_dense_adj(edge_index, batch)
+            z, a, link_loss, ent_loss = dense_diff_pool(z, a, s, mask)
+
+            x = F.leaky_relu(self.gnn_embd2(z, a))
+            x = x.reshape(x.size(0), -1)
+            return self.classifier(x).squeeze(-1)
 
